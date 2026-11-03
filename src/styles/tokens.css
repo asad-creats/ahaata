@@ -1,0 +1,169 @@
+/*
+ * Ehata design tokens (Design system v1.0).
+ * One brand colour, one accent, semantic colours only for meaning.
+ * Every token has a light and a dark value.
+ */
+:root {
+  /* Brand */
+  --brand-900: #0d3b2e;
+  --brand-800: #164a3b; /* top bar controls */
+  --brand-700: #2c5e4e; /* top bar dividers */
+  --brand-600: #11795a;
+  --brand-600-hover: #0d5f47;
+  --brand-link: #0f6b50;
+  --brand-50: #e8f3ee;
+  --brand-tint: #f3f8f5; /* selected rows, soft callouts */
+  --brand-tint-border: #cbe5d8;
+  --on-brand-muted: #a9c9bd;
+  --accent-500: #e3a72f;
+  --accent-text: #7a4a00;
+  --accent-tint: #fffbf0;
+  --accent-tint-border: #f7e1a8;
+
+  /* Semantic */
+  --danger: #b42318;
+  --danger-hover: #8f1c13;
+  --danger-bg: #fcebe8;
+  --danger-surface: #fef6f4;
+  --danger-row: #fef8f7;
+  --danger-border: #f3b8ae;
+  --warning: #7a4a00;
+  --warning-bg: #fdf1d6;
+  --warning-bar: #d9a53a;
+  --success: #1c6b36;
+  --success-bg: #e3f4e8;
+  --success-border: #7dbe92;
+
+  /* Neutral */
+  --bg: #f6f7f6;
+  --surface: #ffffff;
+  --surface-2: #f4f5f4;
+  --surface-3: #eef0ef; /* kanban column, hairline dividers, track */
+  --border: #e1e5e3;
+  --border-subtle: #eef0ef;
+  --border-strong: #c9cfcc;
+  --border-dashed: #a3aba7;
+  --text: #141a17;
+  --text-2: #3a423e;
+  --text-muted: #5c6661;
+  --text-disabled: #7a847f;
+  --disabled-bg: #e1e5e3;
+  --neutral-500: #a3aba7;
+
+  /* Inventory status (fill + letter + pattern, never colour alone) */
+  --st-available-bg: #e3f4e8;
+  --st-available-border: #7dbe92;
+  --st-available-fg: #1c6b36;
+  --st-hold-bg: repeating-linear-gradient(135deg, #fdf1d6 0 6px, #f7e1a8 6px 8px);
+  --st-hold-solid: #fdf1d6;
+  --st-hold-border: #d9a53a;
+  --st-hold-fg: #7a4a00;
+  --st-booked-bg: #11795a;
+  --st-booked-fg: #ffffff;
+  --st-sold-bg: #3a423e;
+  --st-sold-fg: #ffffff;
+
+  /* Sequential scale (demand) */
+  --seq-0: #eef5f1;
+  --seq-1: #cbe5d8;
+  --seq-2: #93c9af;
+  --seq-3: #4fa383;
+  --seq-4: #11795a;
+  --seq-5: #0d3b2e;
+
+  /* Map */
+  --map-ground: #e9ede6;
+  --map-grid: #dde2da;
+  --map-edge: #d5d9d7;
+  --map-park: #cfe3c9;
+  --map-park-border: #a9cba0;
+  --map-park-fg: #2f5a27;
+
+  /* Type */
+  --font: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-urdu: 'Noto Nastaliq Urdu', serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Spacing (4px grid) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-12: 48px;
+
+  /* Radius */
+  --r-control: 6px;
+  --r-panel: 8px;
+
+  /* Elevation — floating only: menus, toasts, drawers, modals, dragged card */
+  --shadow-1: 0 8px 24px rgba(13, 26, 20, 0.16), 0 1px 2px rgba(13, 26, 20, 0.08);
+
+  --focus-ring: 2px solid var(--accent-500);
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'],
+.theme-dark {
+  --brand-900: #0b241c;
+  --brand-800: #123a2e;
+  --brand-700: #24493d;
+  --brand-600: #3fb58a;
+  --brand-600-hover: #5cc79f;
+  --brand-link: #5cc79f;
+  --brand-50: #163328;
+  --brand-tint: #14281f;
+  --brand-tint-border: #24493d;
+  --on-brand-muted: #8fb5a7;
+  --accent-text: #f0c066;
+  --accent-tint: #2a210d;
+  --accent-tint-border: #4a3a12;
+
+  --danger: #f08a78;
+  --danger-hover: #f5a596;
+  --danger-bg: #3d1611;
+  --danger-surface: #2a1310;
+  --danger-row: #22130f;
+  --danger-border: #6b2a20;
+  --warning: #f0c066;
+  --warning-bg: #3a2a0b;
+  --success: #7edba3;
+  --success-bg: #173a27;
+  --success-border: #2f6b48;
+
+  --bg: #0f1412;
+  --surface: #161c19;
+  --surface-2: #1c2420;
+  --surface-3: #1a211e;
+  --border: #2a332f;
+  --border-subtle: #222a26;
+  --border-strong: #3a4540;
+  --text: #e6ebe8;
+  --text-2: #c3ccc8;
+  --text-muted: #9aa5a0;
+  --text-disabled: #6b7570;
+  --disabled-bg: #2a332f;
+
+  --st-available-bg: #173a27;
+  --st-available-border: #2f6b48;
+  --st-available-fg: #7edba3;
+  --st-hold-bg: repeating-linear-gradient(135deg, #3a2a0b 0 6px, #4a3a12 6px 8px);
+  --st-hold-solid: #3a2a0b;
+  --st-hold-fg: #f0c066;
+  --st-booked-bg: #3fb58a;
+  --st-booked-fg: #0b1f17;
+  --st-sold-bg: #6b7570;
+
+  --map-ground: #1a211e;
+  --map-grid: #222a26;
+  --map-edge: #2a332f;
+  --map-park: #1d3a24;
+  --map-park-border: #2f5a27;
+  --map-park-fg: #9fd39a;
+
+  --shadow-1: 0 8px 24px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
+}
