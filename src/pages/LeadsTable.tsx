@@ -27,6 +27,7 @@ export function LeadsTable() {
   const lastClicked = useRef<number | null>(null);
   const assign = usePopover();
   const stage = usePopover();
+  const addFilter = usePopover();
   const [notify, setNotify] = useState(true);
   const [agentPick, setAgentPick] = useState('Usman Tariq');
 
@@ -134,7 +135,7 @@ export function LeadsTable() {
             )}
             <span className="divider-v" style={{ background: 'var(--brand-700)' }} />
             <div style={{ position: 'relative' }} ref={assign.ref}>
-              <button type="button" className="btn btn--sm bulkbar__primary" aria-expanded={assign.open} onClick={assign.toggle}>
+              <button type="button" className="btn btn--sm bulkbar__primary" data-tour="assign" aria-expanded={assign.open} onClick={assign.toggle}>
                 Assign to…
               </button>
               {assign.open && (
@@ -231,12 +232,26 @@ export function LeadsTable() {
           </label>
           {filters.stage && <FilterChip on label="Stage" value="Qualified +3" onRemove={() => setFilters((f) => ({ ...f, stage: false }))} />}
           {filters.owner && <FilterChip on label="Owner" value="Unassigned, Sana N." onRemove={() => setFilters((f) => ({ ...f, owner: false }))} />}
-          <FilterChip label="Source" />
-          <FilterChip label="Budget" />
           <FilterChip label="Created" value="Last 30 days" />
-          <button type="button" className="filter-add" onClick={() => setFilters({ stage: true, owner: true })}>
-            + Filter
-          </button>
+          <div style={{ position: 'relative' }} ref={addFilter.ref}>
+            <button type="button" className="filter-add" aria-expanded={addFilter.open} onClick={addFilter.toggle}>
+              + Filter
+            </button>
+            {addFilter.open && (
+              <div role="menu" className="menu" style={{ top: 38, left: 0 }}>
+                {[
+                  ['Stage', () => setFilters((f) => ({ ...f, stage: true }))],
+                  ['Owner', () => setFilters((f) => ({ ...f, owner: true }))],
+                  ['Source', () => toast({ text: 'Source filter: pick Facebook, Zameen, Graana, Expo, Dealer or Walk-in' })],
+                  ['Budget', () => toast({ text: 'Budget filter: set a PKR range' })],
+                ].map(([l, fn]) => (
+                  <button key={l as string} type="button" role="menuitem" className="menu__item" onClick={() => { (fn as () => void)(); addFilter.setOpen(false); }}>
+                    {l as string}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <span className="spacer" />
           <button type="button" className="btn btn--ghost btn--sm">
             Columns

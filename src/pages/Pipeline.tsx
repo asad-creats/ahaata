@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Age, Avatar, Button, Drawer, FilterChip, Modal, SourceTag, UnitTag } from '../components/ui';
 import { BOOKING_FROM, COLUMNS, LOST_REASONS, STAGES, type Card, type Column } from '../data/pipeline';
@@ -68,6 +68,21 @@ export function Pipeline() {
     move(card, from, to);
     toast({ text: `${card.name} moved to ${STAGES[to]}`, action: { label: 'Undo', onClick: () => move(card, to, from) } });
   };
+
+  // The guided tour "drags" a card by announcing the drop; it lands exactly like a mouse drop.
+  const dropByName = useRef<(name: string, to: Target) => void>(() => {});
+  dropByName.current = (name, to) => {
+    const card = cols.flatMap((c) => c.cards).find((c) => c.name === name);
+    if (card) drop(card.id, to);
+  };
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent<{ name: string; to: Target }>).detail;
+      dropByName.current(d.name, d.to);
+    };
+    window.addEventListener('tour:drop', h);
+    return () => window.removeEventListener('tour:drop', h);
+  }, []);
 
   const undoInto = (card: Card, to: number, after: () => void) => {
     setCols((cs) => cs.map((c, i) => (i === to ? { ...c, n: c.n + 1, cards: [card, ...c.cards] } : c)));
@@ -212,6 +227,7 @@ export function Pipeline() {
                     {cards.map((c) => (
                       <article
                         key={c.id}
+                        data-tour={`card-${c.name}`}
                         className={`kcard ${dragId === c.id ? 'kcard--dragging' : ''} ${kbd?.id === c.id ? 'kcard--picked' : ''}`}
                         draggable
                         tabIndex={0}
@@ -257,7 +273,7 @@ export function Pipeline() {
         </div>
 
         <aside aria-label="Drop zones" className="board__docks">
-          <div className={`dock dock--lost ${over === 'lost' ? 'dock--over' : ''}`} {...dropProps('lost')}>
+          <div data-tour="dock-lost" className={`dock dock--lost ${over === 'lost' ? 'dock--over' : ''}`} {...dropProps('lost')}>
             <div className="row" style={{ gap: 6 }}>
               <b>Lost</b>
               <span className="small muted">· {lostCount} this month</span>
@@ -293,7 +309,7 @@ export function Pipeline() {
               Lost reason (required)
             </legend>
             {LOST_REASONS.map((r) => (
-              <label key={r} className={`lost-reason ${reason === r ? 'is-on' : ''}`}>
+              <label key={r} data-tour={`reason-${r}`} className={`lost-reason ${reason === r ? 'is-on' : ''}`}>
                 <input type="radio" name="lost" checked={reason === r} onChange={() => setReason(r)} /> {r}
               </label>
             ))}

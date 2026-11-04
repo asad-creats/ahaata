@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Chip, type Tone } from '../components/ui';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
@@ -103,15 +104,18 @@ export function Settings() {
             href={`#${id}`}
             className={`tab tab--40 ${active === id ? 'is-active' : ''}`}
             aria-current={active === id ? 'true' : undefined}
-            onClick={() => setActive(id)}
+            onClick={(e) => {
+              e.preventDefault();
+              setActive(id);
+            }}
           >
             {label}
           </a>
         ))}
       </nav>
 
-      <div className="settings-grid">
-        <section id="users" aria-labelledby="h-u" className="panel panel--clip">
+      <div className="settings-one">
+        <section id="users" hidden={active !== 'users'} aria-labelledby="h-u" className="panel panel--clip">
           <div className="panel__head">
             <h2 id="h-u" className="panel__title spacer">
               Users &amp; roles <span className="small muted" style={{ fontWeight: 500 }}>18 of 25 seats</span>
@@ -162,7 +166,7 @@ export function Settings() {
           </div>
         </section>
 
-        <section id="stages" aria-labelledby="h-s" className="panel panel--clip">
+        <section id="stages" hidden={active !== 'stages'} aria-labelledby="h-s" className="panel panel--clip">
           <div className="panel__head">
             <h2 id="h-s" className="panel__title spacer">
               Stages &amp; SLAs
@@ -212,7 +216,7 @@ export function Settings() {
           <div className="panel__foot">Stage SLAs drive the age badge colour everywhere: warning at 75% of SLA, overdue at 100%.</div>
         </section>
 
-        <section id="sources" aria-labelledby="h-i" className="panel panel--clip">
+        <section id="sources" hidden={active !== 'sources'} aria-labelledby="h-i" className="panel panel--clip">
           <div className="panel__head">
             <h2 id="h-i" className="panel__title">
               Lead sources &amp; integrations
@@ -235,7 +239,7 @@ export function Settings() {
           ))}
         </section>
 
-        <section id="rules" aria-labelledby="h-r" className="panel panel--clip">
+        <section id="rules" hidden={active !== 'rules'} aria-labelledby="h-r" className="panel panel--clip">
           <div className="panel__head">
             <h2 id="h-r" className="panel__title spacer">
               Assignment rules <span className="small muted" style={{ fontWeight: 500 }}>top-down, first match wins</span>
@@ -271,7 +275,7 @@ export function Settings() {
           </ol>
         </section>
 
-        <section id="audit" aria-labelledby="h-a" className="panel panel--clip" style={{ gridColumn: '1 / -1' }}>
+        <section id="audit" hidden={active !== 'audit'} aria-labelledby="h-a" className="panel panel--clip">
           <div className="panel__head">
             <h2 id="h-a" className="panel__title spacer">
               Audit log
@@ -307,6 +311,57 @@ export function Settings() {
             </table>
           </div>
           <div className="panel__foot">Append-only. Entries can’t be edited or deleted.</div>
+        </section>
+        <section id="branding" hidden={active !== 'branding'} aria-labelledby="h-b" className="panel panel--clip">
+          <div className="panel__head">
+            <h2 id="h-b" className="panel__title spacer">
+              Public site &amp; branding
+            </h2>
+            <Link to="/site" className="btn btn--secondary btn--sm">
+              Open public site
+            </Link>
+          </div>
+          <div className="stack-4" style={{ padding: 16 }}>
+            <div className="field">
+              <span className="field__label">Brand colour</span>
+              <div className="row">
+                {['#0D3B2E', '#7A2E1F', '#1F3A6B', '#3A2A5C'].map((c, i) => (
+                  <button key={c} type="button" className={`swatch swatch--link ${i === 0 ? 'is-on' : ''}`} style={{ background: c, width: 32, height: 32 }} aria-label={`Brand colour ${c}`} />
+                ))}
+              </div>
+              <span className="field__hint">Status colours (available, on hold, booked, sold) stay fixed so buyers read them the same on every developer’s site.</span>
+            </div>
+            <div className="field">
+              <label htmlFor="st-domain" className="field__label">
+                Domain
+              </label>
+              <input id="st-domain" className="input" defaultValue="saffronresidencia.pk" style={{ maxWidth: 360 }} />
+            </div>
+            <label className="check">
+              <input type="checkbox" defaultChecked /> Hide prices of sold units
+            </label>
+            <label className="check">
+              <input type="checkbox" defaultChecked /> Show “On hold” without the agent’s name
+            </label>
+          </div>
+        </section>
+
+        <section id="billing" hidden={active !== 'billing'} aria-labelledby="h-bill" className="panel panel--clip">
+          <div className="panel__head">
+            <h2 id="h-bill" className="panel__title">
+              Billing
+            </h2>
+          </div>
+          <dl className="dl" style={{ padding: 16, gridTemplateColumns: '160px 1fr', fontSize: 14 }}>
+            <dt>Plan</dt>
+            <dd className="strong">Developer · 25 seats</dd>
+            <dt>Seats used</dt>
+            <dd>18 of 25 (dealers count as 1 seat per firm)</dd>
+            <dt>Next invoice</dt>
+            <dd>1 Dec 2026 · [YOUR PRICE]</dd>
+            <dt>Paid by</dt>
+            <dd>Bank transfer · accounts@saffrondev.pk</dd>
+          </dl>
         </section>
       </div>
     </>

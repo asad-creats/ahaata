@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import { App } from './App';
+import { TourProvider } from './components/Tour';
 import { SessionProvider } from './lib/session';
 import { ToastProvider } from './lib/toast';
 import './styles/tokens.css';
@@ -18,7 +19,9 @@ createRoot(document.getElementById('root')!).render(
     <Router>
       <SessionProvider>
         <ToastProvider>
-          <App />
+          <TourProvider>
+            <App />
+          </TourProvider>
         </ToastProvider>
       </SessionProvider>
     </Router>

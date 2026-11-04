@@ -188,7 +188,7 @@ export function PublicUnit() {
                   <span className="field__label">Down payment</span>
                   <div role="group" aria-label="Down payment" className="row" style={{ gap: 6 }}>
                     {[20, 25, 30].map((d) => (
-                      <button key={d} type="button" {...toggle(d === down)} onClick={() => setDown(d)}>
+                      <button key={d} type="button" data-tour={`down-${d}`} {...toggle(d === down)} onClick={() => setDown(d)}>
                         {d}%
                       </button>
                     ))}
@@ -198,7 +198,7 @@ export function PublicUnit() {
                   <span className="field__label">Plan length</span>
                   <div role="group" aria-label="Plan length" className="row" style={{ gap: 6 }}>
                     {[2, 3, 4].map((y) => (
-                      <button key={y} type="button" {...toggle(y === years)} onClick={() => setYears(y)}>
+                      <button key={y} type="button" data-tour={`years-${y}`} {...toggle(y === years)} onClick={() => setYears(y)}>
                         {y} years
                       </button>
                     ))}

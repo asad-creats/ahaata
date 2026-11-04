@@ -32,7 +32,7 @@ export function LogCallForm({ name, meta, onSave, large }: { name: string; meta:
         </legend>
         <div className="logcall__grid">
           {OUTCOMES.map((o) => (
-            <button key={o} type="button" className="toggle" style={{ height: h }} aria-pressed={outcome === o} onClick={() => setOutcome(o)}>
+            <button key={o} type="button" data-tour={`outcome-${o}`} className="toggle" style={{ height: h }} aria-pressed={outcome === o} onClick={() => setOutcome(o)}>
               {o}
             </button>
           ))}

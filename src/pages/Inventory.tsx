@@ -24,6 +24,7 @@ export function Inventory() {
   const [selCode, setSelCode] = useState<string | null>(params.get('unit') ?? 'B-504');
   const [multi, setMulti] = useState<string[]>([]);
   const [bands, setBands] = useState(BANDS);
+  const [view, setView] = useState<'grid' | 'prices'>('grid');
 
   const floors = useMemo(() => buildTower(tower).map((row) => row.map((u) => ({ ...u, ...overrides[u.code] }))), [tower, overrides]);
   const all = floors.flat();
@@ -62,14 +63,23 @@ export function Inventory() {
           Export price list PDF
         </button>
         {s.role === 'admin' ? (
-          <a href="#price-list" className="btn btn--primary btn--sm">
+          <button type="button" className="btn btn--primary btn--sm" onClick={() => setView('prices')}>
             Edit price list
-          </a>
+          </button>
         ) : (
           <DisabledWhy reason="Only Owner/Admin can edit the price list" size="sm">
             Edit price list
           </DisabledWhy>
         )}
+      </div>
+
+      <div role="tablist" aria-label="Inventory views" className="tabs tabs--flush">
+        <button type="button" role="tab" aria-selected={view === 'grid'} className="tab tab--40" onClick={() => setView('grid')}>
+          Units
+        </button>
+        <button type="button" role="tab" aria-selected={view === 'prices'} className="tab tab--40" data-tour="tab-prices" onClick={() => setView('prices')}>
+          Price list {changes > 0 && <span className="tab__n" style={{ color: 'var(--warning)' }}>draft v8</span>}
+        </button>
       </div>
 
       <div className="row-wrap">
@@ -91,7 +101,7 @@ export function Inventory() {
           ))}
         </div>
         <span style={{ width: 8 }} />
-        {(['A', 'H', 'B', 'S'] as Status[]).map((k) => (
+        {view === 'grid' && (['A', 'H', 'B', 'S'] as Status[]).map((k) => (
           <button key={k} type="button" aria-pressed={statusOn[k]} className={`filter-chip legend-btn ${statusOn[k] ? '' : 'is-off'}`} onClick={() => setStatusOn((x) => ({ ...x, [k]: !x[k] }))}>
             <span className={`st st-swatch st--${k}`} style={k === 'H' ? { background: 'var(--st-hold-solid)' } : undefined}>
               {k}
@@ -100,17 +110,17 @@ export function Inventory() {
           </button>
         ))}
         <span className="spacer" />
-        <label className="row small text-2" style={{ gap: 6 }}>
+        {view === 'grid' && <label className="row small text-2" style={{ gap: 6 }}>
           Show
           <select className="select select--sm" value={show} onChange={(e) => setShow(e.target.value as typeof show)}>
             <option value="price">Price</option>
             <option value="size">Size</option>
             <option value="views">Views (30d)</option>
           </select>
-        </label>
+        </label>}
       </div>
 
-      <div className="split">
+      {view === 'grid' && <div className="split">
         <section aria-label="Unit grid" className="panel" style={{ flex: '999 1 640px', minWidth: 0, padding: 12, overflowX: 'auto' }}>
           {multi.length > 0 && (
             <div className="callout callout--brand" style={{ marginBottom: 12 }}>
@@ -276,9 +286,9 @@ export function Inventory() {
             </div>
           </aside>
         )}
-      </div>
+      </div>}
 
-      <section id="price-list" aria-labelledby="h-pl" className="panel panel--clip">
+      {view === 'prices' && <section id="price-list" aria-labelledby="h-pl" className="panel panel--clip">
         <div className="panel__head">
           <h2 id="h-pl" className="panel__title">
             Price list editor — {TOWERS.find((t) => t.key === tower)?.label}
@@ -345,7 +355,7 @@ export function Inventory() {
           </table>
         </div>
         <div className="panel__foot">Units already on hold keep their quoted price until the hold expires. Booked and sold units are never repriced.</div>
-      </section>
+      </section>}
     </>
   );
 
@@ -363,6 +373,7 @@ export function Inventory() {
               title={tip}
               aria-label={`${u.code}, ${u.type}, ${STATUS_LABEL[u.status]}${u.status === 'S' ? '' : `, PKR ${fmtShort(u.price)}`}`}
               aria-pressed={u.code === selCode || multi.includes(u.code)}
+              data-tour={`unit-${u.code}`}
               className={`st unit-cell st--${u.status} ${u.code === selCode || multi.includes(u.code) ? 'st--sel' : ''}`}
               style={{ opacity: dim ? 0.25 : 1 }}
               onClick={(e) => clickUnit(u, e)}

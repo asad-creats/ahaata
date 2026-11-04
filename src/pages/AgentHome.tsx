@@ -45,8 +45,8 @@ export function AgentHome() {
   }, [toast]);
 
   const pick = (q: Queue) => {
+    // Tiles act as tabs: one queue at a time keeps the page calm.
     setQueue(q);
-    document.getElementById(`q-${q}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const calls = CALLS.filter((c) => !called.includes(c.name));
@@ -68,7 +68,7 @@ export function AgentHome() {
 
       <div role="tablist" aria-label="Today's queues" className="grid-tiles grid-tiles--4">
         {TILES.map((t) => (
-          <button key={t.key} type="button" role="tab" aria-selected={queue === t.key} className="kpi" onClick={() => pick(t.key)}>
+          <button key={t.key} type="button" role="tab" aria-selected={queue === t.key} className="kpi" data-tour={`tile-${t.key}`} onClick={() => pick(t.key)}>
             <span className="kpi__label">{t.label}</span>
             <span className="row" style={{ alignItems: 'baseline' }}>
               <span className="kpi__value">{t.key === 'call' ? Number(t.n) - called.length : t.n}</span>
@@ -99,6 +99,7 @@ export function AgentHome() {
             </Panel>
           )}
 
+          {queue === 'call' && (
           <section id="q-call" aria-labelledby="h-call" className="panel panel--clip">
             <div className="panel__head">
               <h2 id="h-call" className="panel__title">
@@ -169,7 +170,7 @@ export function AgentHome() {
                           <button type="button" className="btn btn--secondary btn--icon" aria-label={`WhatsApp ${c.name}`}>
                             <Icon name="whatsapp" size={16} stroke={1.8} />
                           </button>
-                          <button type="button" className="btn btn--primary btn--sm" style={{ height: 36 }} onClick={() => setLogFor(c)}>
+                          <button type="button" className="btn btn--primary btn--sm" style={{ height: 36 }} data-tour={c === calls[0] ? 'call-first' : undefined} onClick={() => setLogFor(c)}>
                             <Icon name="phone" size={14} />
                             Call
                           </button>
@@ -188,7 +189,9 @@ export function AgentHome() {
               </table>
             </div>
           </section>
+          )}
 
+          {queue === 'overdue' && (
           <Panel
             title="Overdue follow-ups"
             titleId="q-overdue"
@@ -222,9 +225,8 @@ export function AgentHome() {
               </div>
             ))}
           </Panel>
-        </div>
-
-        <aside className="stack-6 min0" style={{ flex: '1 1 320px' }}>
+          )}
+          {queue === 'visits' && (
           <Panel title="Site visits today" titleId="q-visits" actions={<span className="small muted">{VISITS.length}</span>}>
             {VISITS.map((v) => (
               <div key={v.time} className="list-row" style={{ alignItems: 'flex-start' }}>
@@ -246,8 +248,11 @@ export function AgentHome() {
               </button>
             </div>
           </Panel>
+          )}
+        </div>
 
-          <Panel title="My holds expiring">
+        <aside className="stack-6 min0" style={{ flex: '1 1 320px' }}>
+          <Panel title="Holds expiring">
             {HOLDS.map((h) => (
               <div key={h.unit} className="list-row">
                 <UnitTag>{h.unit}</UnitTag>

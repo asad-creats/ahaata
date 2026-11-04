@@ -7,6 +7,7 @@ import { STAGES } from '../data/pipeline';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 
+type Section = 'activity' | 'units' | 'history';
 type Kind = 'all' | 'call' | 'wa' | 'visit' | 'note';
 type Act = { kind: Kind | 'sys' | 'doc'; icon: IconName; title: string; meta: string; body: string; tone?: 'bad' | 'brand' };
 
@@ -65,6 +66,8 @@ export function LeadProfile() {
   const toast = useToast();
   const [cur, setCur] = useState(7);
   const [filter, setFilter] = useState<Kind>('all');
+  const [section, setSection] = useState<Section>('activity');
+  const [moreContact, setMoreContact] = useState(false);
   const [acts, setActs] = useState(ACTS);
   const [note, setNote] = useState('');
   const [logging, setLogging] = useState(false);
@@ -146,15 +149,19 @@ export function LeadProfile() {
                 Edit
               </button>
             </div>
-            {CONTACT.map((f) => (
+            {(moreContact ? CONTACT : CONTACT.filter((f) => ['Mobile', 'Budget', 'Looking for', 'Preferred contact'].includes(f.k))).map((f) => (
               <div key={f.k} className="kv">
                 <span>{f.k}</span>
                 <span className={f.strong ? 'strong' : undefined}>{f.v}</span>
               </div>
             ))}
+            <button type="button" className="btn btn--ghost btn--xs" style={{ alignSelf: 'flex-start', padding: 0 }} aria-expanded={moreContact} onClick={() => setMoreContact((x) => !x)}>
+              {moreContact ? 'Show less' : `Show all ${CONTACT.length} details`}
+            </button>
           </section>
-          <section className="panel stack-3" style={{ padding: 16 }}>
-            <h2 className="panel__title">Ownership</h2>
+          <details className="panel disclosure">
+            <summary className="panel__title">Ownership</summary>
+            <div className="stack-3" style={{ paddingTop: 12 }}>
             <dl className="dl">
               <dt>Owner</dt>
               <dd className="strong">Usman Tariq</dd>
@@ -179,77 +186,85 @@ export function LeadProfile() {
                 <span className="small muted">Only Sales Managers can reassign leads.</span>
               </>
             )}
-          </section>
+            </div>
+          </details>
         </aside>
 
-        <section aria-labelledby="h-act" className="panel" style={{ flex: '2 1 420px', display: 'flex', flexDirection: 'column' }}>
-          <div className="panel__head">
-            <h2 id="h-act" className="panel__title spacer">
-              Activity
-            </h2>
-            <div role="group" aria-label="Filter activity" className="row" style={{ gap: 4 }}>
-              {FILTERS.map((f) => (
-                <button key={f.key} type="button" aria-pressed={filter === f.key} className="pill-toggle" onClick={() => setFilter(f.key)}>
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <form
-            className="stack-2"
-            style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!note.trim()) return;
-              setActs((xs) => [{ kind: 'note', icon: 'note', title: 'Note', meta: `${s.person.name} · just now`, body: note.trim() }, ...xs]);
-              setNote('');
-              toast({ text: 'Note saved · next follow-up Tomorrow 11:00' });
-            }}
-          >
-            <label htmlFor="lp-note" className="field__label">
-              Add note
-            </label>
-            <textarea id="lp-note" className="textarea" rows={2} placeholder="What happened? Mention a colleague with @" value={note} onChange={(e) => setNote(e.target.value)} />
-            <div className="row">
-              <span className="small muted">Next follow-up</span>
-              <button type="button" className="btn btn--secondary btn--xs" style={{ fontWeight: 500 }}>
-                Tomorrow 11:00
+        <section aria-label="Lead details" className="panel" style={{ flex: '2 1 520px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <div role="tablist" aria-label="Lead sections" className="tabs">
+            {(
+              [
+                ['activity', 'Activity', acts.length],
+                ['units', 'Units of interest', UNITS.length],
+                ['history', 'Stage history', '12d'],
+              ] as [Section, string, number | string][]
+            ).map(([k, l, n]) => (
+              <button key={k} type="button" role="tab" aria-selected={section === k} className="tab" data-tour={`tab-${k}`} onClick={() => setSection(k)}>
+                {l} <span className="tab__n">{n}</span>
               </button>
-              <span className="spacer" />
-              <button type="submit" className="btn btn--primary btn--sm">
-                Save
-              </button>
-            </div>
-          </form>
-          <ol className="timeline">
-            {shown.map((a, i) => (
-              <li key={a.title + a.meta + i}>
-                <span className={`timeline__icon ${a.tone === 'bad' ? 'is-bad' : a.tone === 'brand' ? 'is-brand' : ''}`}>
-                  <Icon name={a.icon} size={14} />
-                </span>
-                <div className="stack-1 min0 spacer" style={{ gap: 2 }}>
-                  <div className="row-wrap" style={{ alignItems: 'baseline' }}>
-                    <b className="strong">{a.title}</b>
-                    <span className="small muted">{a.meta}</span>
-                  </div>
-                  <span className="text-2">{a.body}</span>
-                </div>
-              </li>
             ))}
-            {shown.length === 0 && <li className="muted">Nothing of this type yet.</li>}
-          </ol>
-        </section>
-
-        <div className="stack-4 min0" style={{ flex: '1 1 340px' }}>
-          <section aria-labelledby="h-units" className="panel panel--clip">
-            <div className="panel__head">
-              <h2 id="h-units" className="panel__title spacer">
-                Units of interest
-              </h2>
-              <button type="button" className="btn btn--ghost btn--xs">
-                + Add unit
-              </button>
-            </div>
+          </div>
+          {section === 'activity' && (
+            <>
+              <div className="row-wrap" role="group" aria-label="Filter activity" style={{ gap: 4, padding: '10px 16px 0' }}>
+                {FILTERS.map((f) => (
+                  <button key={f.key} type="button" aria-pressed={filter === f.key} className="pill-toggle" onClick={() => setFilter(f.key)}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            <form
+              className="stack-2"
+              style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!note.trim()) return;
+                setActs((xs) => [{ kind: 'note', icon: 'note', title: 'Note', meta: `${s.person.name} · just now`, body: note.trim() }, ...xs]);
+                setNote('');
+                toast({ text: 'Note saved · next follow-up Tomorrow 11:00' });
+              }}
+            >
+              <label htmlFor="lp-note" className="field__label">
+                Add note
+              </label>
+              <textarea id="lp-note" className="textarea" rows={2} placeholder="What happened? Mention a colleague with @" value={note} onChange={(e) => setNote(e.target.value)} />
+              <div className="row">
+                <span className="small muted">Next follow-up</span>
+                <button type="button" className="btn btn--secondary btn--xs" style={{ fontWeight: 500 }}>
+                  Tomorrow 11:00
+                </button>
+                <span className="spacer" />
+                <button type="submit" className="btn btn--primary btn--sm">
+                  Save
+                </button>
+              </div>
+            </form>
+            <ol className="timeline">
+              {shown.map((a, i) => (
+                <li key={a.title + a.meta + i}>
+                  <span className={`timeline__icon ${a.tone === 'bad' ? 'is-bad' : a.tone === 'brand' ? 'is-brand' : ''}`}>
+                    <Icon name={a.icon} size={14} />
+                  </span>
+                  <div className="stack-1 min0 spacer" style={{ gap: 2 }}>
+                    <div className="row-wrap" style={{ alignItems: 'baseline' }}>
+                      <b className="strong">{a.title}</b>
+                      <span className="small muted">{a.meta}</span>
+                    </div>
+                    <span className="text-2">{a.body}</span>
+                  </div>
+                </li>
+              ))}
+              {shown.length === 0 && <li className="muted">Nothing of this type yet.</li>}
+            </ol>
+            </>
+          )}
+          {section === 'units' && (
+            <div>
+              <div className="row" style={{ padding: '10px 16px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn--ghost btn--xs">
+                  + Add unit
+                </button>
+              </div>
             {UNITS.map((u) => (
               <div key={u.code} className="stack-2" style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', gap: 6 }}>
                 <div className="row">
@@ -269,12 +284,10 @@ export function LeadProfile() {
                 </div>
               </div>
             ))}
-          </section>
-
-          <section aria-labelledby="h-hist" className="panel stack-2" style={{ padding: '12px 16px' }}>
-            <h2 id="h-hist" className="panel__title">
-              Stage history
-            </h2>
+            </div>
+          )}
+          {section === 'history' && (
+            <div className="stack-2" style={{ padding: '16px', gap: 10 }}>
             <span className="small muted">Time in stage vs SLA · 12 days total</span>
             {HIST.map(([name, d, w, late]) => (
               <div key={name} className="hist-row">
@@ -290,8 +303,9 @@ export function LeadProfile() {
             <span className="small muted" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
               Moved to Negotiation by Usman Tariq on 22 Oct after visit.
             </span>
-          </section>
-        </div>
+            </div>
+          )}
+        </section>
       </div>
 
       {logging && (

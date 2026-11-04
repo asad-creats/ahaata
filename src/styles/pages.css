@@ -1729,3 +1729,220 @@
     display: none;
   }
 }
+
+/* ───────────── Calmer layout pass ─────────────
+   More air between blocks, larger hit areas, one thing per view. */
+.shell__main {
+  padding: 24px 32px 40px;
+  gap: 20px;
+}
+.shell__main--roomy {
+  gap: 24px;
+}
+.panel__head {
+  padding: 14px 20px;
+}
+.list-row {
+  padding: 14px 20px;
+}
+.dt th {
+  padding: 10px 14px;
+}
+.dt td {
+  padding: 11px 14px;
+}
+.dt th:first-child,
+.dt td:first-child {
+  padding-left: 20px;
+}
+.dt tbody tr:hover td {
+  background: var(--surface-2);
+}
+.dt tbody tr.is-selected:hover td {
+  background: var(--brand-tint);
+}
+.btn--sm {
+  height: 34px;
+}
+.btn--xs {
+  height: 30px;
+}
+.filter-chip,
+.filter-add,
+.seg > button,
+.seg > a {
+  height: 34px;
+}
+.kpi {
+  padding: 14px 18px;
+}
+.settings-one {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 980px;
+}
+.disclosure {
+  padding: 16px;
+}
+.disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure > summary::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+.disclosure[open] > summary::after {
+  transform: rotate(-135deg);
+}
+@media (max-width: 1023px) {
+  .shell__main {
+    padding: 16px 16px 96px;
+  }
+}
+/* Gentle entrance when switching screens or tabs */
+.shell__main > *,
+.panel > [role='tablist'] ~ * {
+  animation: calm-in 0.22s ease-out both;
+}
+@keyframes calm-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* ───────────── Guided tour ───────────── */
+.topbar__tour {
+  height: 36px;
+  font-weight: 600;
+}
+.topbar__tour:disabled {
+  opacity: 0.5;
+}
+@media (max-width: 760px) {
+  .topbar__tour span {
+    display: none;
+  }
+}
+.tour-offer {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-1);
+  padding: 10px 10px 10px 14px;
+}
+.tour-ring {
+  position: fixed;
+  z-index: 90;
+  border-radius: 10px;
+  border: 2px solid var(--accent-500);
+  box-shadow: 0 0 0 6px rgba(227, 167, 47, 0.22);
+  pointer-events: none;
+  transition: left 0.35s ease, top 0.35s ease, width 0.35s ease, height 0.35s ease;
+}
+.tour-cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 95;
+  pointer-events: none;
+  transition: transform 0.85s cubic-bezier(0.45, 0, 0.2, 1);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+.tour-cursor svg {
+  display: block;
+  margin: -2px 0 0 -2px;
+  transition: transform 0.12s;
+}
+.tour-cursor.is-down svg {
+  transform: scale(0.85);
+}
+.tour-cursor__ripple {
+  position: absolute;
+  left: -18px;
+  top: -18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-500);
+  opacity: 0;
+  animation: tour-ripple 0.6s ease-out;
+}
+@keyframes tour-ripple {
+  from {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+.tour-ghost {
+  position: fixed !important;
+  z-index: 94;
+  margin: 0;
+  pointer-events: none;
+  box-shadow: var(--shadow-1);
+  transition: transform 1s cubic-bezier(0.45, 0, 0.2, 1);
+}
+.tour-card {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 96;
+  width: min(420px, calc(100vw - 32px));
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-1);
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: calm-in 0.2s ease-out both;
+}
+.tour-card .track > span {
+  transition: width 0.3s;
+}
+@media (max-width: 1023px) {
+  .tour-card {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-cursor,
+  .tour-ring,
+  .tour-ghost {
+    transition: none;
+  }
+  .shell__main > *,
+  .panel > [role='tablist'] ~ *,
+  .tour-card {
+    animation: none;
+  }
+}
