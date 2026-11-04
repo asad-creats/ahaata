@@ -1815,7 +1815,8 @@
 /* Gentle entrance when switching screens or tabs */
 .shell__main > *,
 .panel > [role='tablist'] ~ * {
-  animation: calm-in 0.22s ease-out both;
+  /* backwards, not both: once the fade ends no stacking context is left behind, so menus aren't trapped under later siblings */
+  animation: calm-in 0.22s ease-out backwards;
 }
 @keyframes calm-in {
   from {
@@ -1968,4 +1969,13 @@
 }
 .kcol__head .row {
   width: 100%;
+}
+
+/* Lost / Nurture lists */
+.drawer--wide {
+  width: min(880px, 100vw);
+}
+.dock__view {
+  align-self: flex-start;
+  margin-top: auto;
 }

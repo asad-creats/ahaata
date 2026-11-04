@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Age, Avatar, Button, Drawer, Modal, SourceTag, UnitTag } from '../components/ui';
-import { BOOKING_FROM, COLUMNS, LOST_REASONS, STAGES, type Card, type Column } from '../data/pipeline';
+import { BOOKING_FROM, LOST_REASONS, STAGES, type Card } from '../data/pipeline';
+import { ArchiveList, ReopenModal } from '../components/Archive';
+import { usePipeline, type ArchiveKind, type Archived } from '../lib/pipelineStore';
+import { useSession } from '../lib/session';
 import { Icon } from '../components/Icon';
 import { usePopover } from '../lib/hooks';
 import { useToast } from '../lib/toast';
@@ -19,9 +22,10 @@ type Pending = { card: Card; from: number; to: Target };
 export function Pipeline() {
   const toast = useToast();
   const nav = useNavigate();
-  const [cols, setCols] = useState<Column[]>(() => COLUMNS.map((c) => ({ ...c, cards: [...c.cards] })));
-  const [lostCount, setLostCount] = useState(88);
-  const [nurtureCount, setNurtureCount] = useState(164);
+  const { cols, setCols, lostCount, nurtureCount, archive } = usePipeline();
+  const { person } = useSession();
+  const [listOf, setListOf] = useState<ArchiveKind | null>(null);
+  const [reopening, setReopening] = useState<Archived | null>(null);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [filters, setFilters] = useState(NO_FILTERS);
   const filterPop = usePopover();
@@ -52,8 +56,6 @@ export function Pipeline() {
       }),
     );
 
-  const remove = (card: Card, from: number) => setCols((cs) => cs.map((c, i) => (i === from ? { ...c, n: c.n - 1, cards: c.cards.filter((x) => x.id !== card.id) } : c)));
-
   /** Lost needs a reason; Token or later needs a Booking. Everything else moves straight away. */
   const drop = (id: string, to: Target) => {
     const hit = find(id);
@@ -67,9 +69,8 @@ export function Pipeline() {
       return;
     }
     if (to === 'nurture') {
-      remove(card, from);
-      setNurtureCount((n) => n + 1);
-      toast({ text: `${card.name} moved to Nurture · monthly WhatsApp drip`, action: { label: 'Undo', onClick: () => undoInto(card, from, () => setNurtureCount((n) => n - 1)) } });
+      const undo = archive({ card, kind: 'nurture', fromStage: STAGES[from], reason: 'Not ready yet', by: person.name, fromIndex: from });
+      toast({ text: `${card.name} moved to Nurture · monthly WhatsApp messages`, action: { label: 'Undo', onClick: undo } });
       return;
     }
     move(card, from, to);
@@ -91,17 +92,11 @@ export function Pipeline() {
     return () => window.removeEventListener('tour:drop', h);
   }, []);
 
-  const undoInto = (card: Card, to: number, after: () => void) => {
-    setCols((cs) => cs.map((c, i) => (i === to ? { ...c, n: c.n + 1, cards: [card, ...c.cards] } : c)));
-    after();
-  };
-
   const confirmLost = () => {
     setTried(true);
     if (!pending || !reason || (reason.startsWith('Other') && !lostNote.trim())) return;
-    remove(pending.card, pending.from);
-    setLostCount((n) => n + 1);
-    toast({ text: `${pending.card.name} marked as lost · ${reason}` });
+    const undo = archive({ card: pending.card, kind: 'lost', fromStage: STAGES[pending.from], reason, note: lostNote.trim() || undefined, by: person.name, fromIndex: pending.from });
+    toast({ text: `${pending.card.name} marked as lost · ${reason}`, action: { label: 'Undo', onClick: undo } });
     setPending(null);
   };
 
@@ -333,16 +328,42 @@ export function Pipeline() {
               <span className="small muted">· {lostCount} this month</span>
             </div>
             <span className="small strong danger-text">{dragId || kbd ? 'Release to choose a reason' : 'Drop a card here to mark it lost'}</span>
+            <button type="button" className="btn btn--secondary btn--sm dock__view" data-tour="view-lost" onClick={() => setListOf('lost')}>
+              View lost leads
+            </button>
           </div>
           <div className={`dock dock--nurture ${over === 'nurture' ? 'dock--over' : ''}`} {...dropProps('nurture')}>
             <div className="row" style={{ gap: 6 }}>
               <b>Nurture</b>
               <span className="small muted">· {nurtureCount}</span>
             </div>
-            <span className="small muted">Monthly WhatsApp drip; resurfaces on new activity</span>
+            <span className="small muted">Monthly WhatsApp messages; comes back on new activity</span>
+            <button type="button" className="btn btn--secondary btn--sm dock__view" data-tour="view-nurture" onClick={() => setListOf('nurture')}>
+              View nurture list
+            </button>
           </div>
         </aside>
       </div>
+
+      {listOf && (
+        <Drawer
+          wide
+          title={listOf === 'lost' ? `Lost · ${lostCount} this month` : `Nurture · ${nurtureCount}`}
+          sub={listOf === 'lost' ? 'Closed deals and why. Reopen one if the buyer comes back.' : 'Not ready yet. Each gets a WhatsApp message on the 1st of the month.'}
+          onClose={() => setListOf(null)}
+          footer={
+            <Link to={`/leads?view=${listOf}`} className="btn btn--ghost btn--sm">
+              Open in Leads table
+            </Link>
+          }
+        >
+          <div className="panel panel--clip" style={{ margin: '-16px', border: 0, borderRadius: 0 }}>
+            <ArchiveList kind={listOf} onReopen={setReopening} />
+          </div>
+        </Drawer>
+      )}
+
+      {reopening && <ReopenModal entry={reopening} onClose={() => setReopening(null)} />}
 
       {pending && pending.to === 'lost' && (
         <Modal

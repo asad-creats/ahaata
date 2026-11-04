@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import { App } from './App';
 import { TourProvider } from './components/Tour';
+import { PipelineProvider } from './lib/pipelineStore';
 import { SessionProvider } from './lib/session';
 import { ToastProvider } from './lib/toast';
 import './styles/tokens.css';
@@ -19,9 +20,11 @@ createRoot(document.getElementById('root')!).render(
     <Router>
       <SessionProvider>
         <ToastProvider>
-          <TourProvider>
-            <App />
-          </TourProvider>
+          <PipelineProvider>
+            <TourProvider>
+              <App />
+            </TourProvider>
+          </PipelineProvider>
         </ToastProvider>
       </SessionProvider>
     </Router>
