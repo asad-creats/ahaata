@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ReopenModal } from '../components/Archive';
 import { LEADS } from '../data/leads';
+import { AWAITING, CALLS, OVERDUE, VISITS } from '../data/agent';
+import { slug } from '../lib/leadLink';
 import { usePipeline, type Archived, type LeadEvent } from '../lib/pipelineStore';
 import { Icon, type IconName } from '../components/Icon';
 import { LogCallForm } from '../components/LogCall';
@@ -77,12 +79,19 @@ const eventToAct = (e: LeadEvent): Act => ({
 export function LeadProfile() {
   const { id = 'L-20931' } = useParams();
   const { cols, archived, events } = usePipeline();
-  const onBoard = cols.flatMap((c, i) => c.cards.map((card) => ({ card, stage: STAGES[i] }))).find((x) => x.card.id === id);
-  const inArchive = archived.find((a) => a.card.id === id);
-  const row = id.startsWith('lt-') ? LEADS.find((r) => `lt-${r.id}` === id) : undefined;
-  const name = onBoard?.card.name ?? inArchive?.card.name ?? row?.name ?? 'Faraz Ahmed';
+  // A lead is found by card id or by name slug, on the board, in Lost/Nurture, in the leads table or in today's queues.
+  const matches = (cardId: string, name: string) => cardId === id || slug(name) === id;
+  const onBoard = cols.flatMap((c, i) => c.cards.map((card) => ({ card, stage: STAGES[i] }))).find((x) => matches(x.card.id, x.card.name));
+  const inArchive = archived.find((a) => matches(a.card.id, a.card.name));
+  const row = LEADS.find((r) => `lt-${r.id}` === id || r.id === id);
+  const queued = CALLS.find((c) => slug(c.name) === id);
+  const other = [...OVERDUE, ...AWAITING, ...VISITS].find((x) => slug(x.name) === id);
+  const name =
+    id === 'L-20931'
+      ? 'Faraz Ahmed'
+      : onBoard?.card.name ?? inArchive?.card.name ?? row?.name ?? queued?.name ?? other?.name ?? id.replace(/-/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
   if (name === 'Faraz Ahmed') return <FarazProfile extra={(events[name] ?? []).map(eventToAct)} />;
-  const card = onBoard?.card ?? inArchive?.card;
+  const card = onBoard?.card ?? inArchive?.card ?? (queued ? { unit: queued.unit, src: queued.source.split(' · ')[0], budget: queued.budget, owner: 'UT' } : undefined);
   return (
     <SimpleProfile
       lead={{
@@ -93,7 +102,7 @@ export function LeadProfile() {
         src: card?.src ?? row?.src ?? '—',
         budget: card?.budget ?? row?.budget ?? '—',
         owner: card?.owner ?? row?.owner ?? '?',
-        phone: row?.phone,
+        phone: row?.phone ?? queued?.phone,
       }}
       archivedEntry={inArchive}
       acts={[

@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon';
 import { LogCallForm } from '../components/LogCall';
 import { Drawer, Track, UnitTag, toneFg, type Tone } from '../components/ui';
 import { AWAITING, CALLS, HOLDS, OVERDUE, VISITS, type CallRow } from '../data/agent';
+import { leadPath } from '../lib/leadLink';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 
@@ -106,7 +107,7 @@ export function AgentHome() {
           </span>
           <div className="home-next__body">
             <div className="col min0" style={{ gap: 6, flex: 1 }}>
-              <Link to="/leads/L-20931" className="home-next__name">
+              <Link to={leadPath(next.name)} className="home-next__name">
                 {next.name}
               </Link>
               <span className="text-2">
@@ -152,7 +153,7 @@ export function AgentHome() {
                   <Row
                     key={c.name}
                     title={
-                      <Link to="/leads/L-20931" className="cell-link">
+                      <Link to={leadPath(c.name)} className="cell-link">
                         {c.name}
                       </Link>
                     }
@@ -169,7 +170,11 @@ export function AgentHome() {
               OVERDUE.map((o) => (
                 <Row
                   key={o.name}
-                  title={o.name}
+                  title={
+                    <Link to={leadPath(o.name)} className="cell-link">
+                      {o.name}
+                    </Link>
+                  }
                   sub={`${o.stage} · “${o.note}”`}
                   chip={o.late}
                   tone="bad"
@@ -202,7 +207,11 @@ export function AgentHome() {
               AWAITING.map((a) => (
                 <Row
                   key={a.name}
-                  title={a.name}
+                  title={
+                    <Link to={leadPath(a.name)} className="cell-link">
+                      {a.name}
+                    </Link>
+                  }
                   sub={`${a.what} · ${a.seen}`}
                   action={
                     <button type="button" className="btn btn--secondary btn--sm">

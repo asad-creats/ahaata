@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { InsightFilterBar } from '../components/InsightFilters';
 import { Button, UnitTag } from '../components/ui';
+import { leadPath } from '../lib/leadLink';
 import { useToast } from '../lib/toast';
 
 const TTFC: [string, number, number][] = [
@@ -151,7 +152,7 @@ export function LeakFinder() {
               {scored.map(({ s, score }) => (
                 <tr key={s[0]}>
                   <td>
-                    <Link to="/leads/L-20931" className="cell-link">
+                    <Link to={leadPath(s[0])} className="cell-link">
                       {s[0]}
                     </Link>
                   </td>
