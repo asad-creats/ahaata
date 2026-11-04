@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Icon } from '../components/Icon';
-import { Button, Chip, DisabledWhy, Modal, UnitTag, type Tone } from '../components/ui';
+import { Button, Chip, DisabledWhy, Drawer, Modal, UnitTag, type Tone } from '../components/ui';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 
@@ -49,6 +49,11 @@ export function Bookings() {
   const tab = params.get('tab') ?? 'overdue';
   const [rows, setRows] = useState(OVERDUE);
   const [selBk, setSelBk] = useState('BK-0412');
+  const [detailOpen, setDetailOpen] = useState(false);
+  const openDetail = (bk: string) => {
+    setSelBk(bk);
+    setDetailOpen(true);
+  };
   const [recording, setRecording] = useState<Od | null>(null);
   const canRecord = s.role === 'finance' || s.role === 'admin';
   const sel = rows.find((r) => r.bk === selBk) ?? rows[0];
@@ -81,22 +86,21 @@ export function Bookings() {
         <button type="button" className={`kpi ${tab === 'overdue' ? 'is-active' : ''}`} onClick={() => setParams({})}>
           <span className="kpi__label">Overdue now</span>
           <span className="kpi__value">PKR 3.42 Cr</span>
-          <span className="kpi__sub danger-text">23 instalments · 17 buyers · 6 over 60 days</span>
+          <span className="kpi__sub danger-text">23 instalments · 6 over 60 days</span>
         </button>
         <button type="button" className={`kpi ${tab === 'month' ? 'is-active' : ''}`} onClick={() => setParams({ tab: 'month' })}>
           <span className="kpi__label">Due in next 30 days</span>
           <span className="kpi__value">PKR 6.18 Cr</span>
-          <span className="small text-2">48 instalments · reminders auto-sent 7d and 1d before</span>
+          <span className="small text-2">48 instalments · auto-reminders on</span>
         </button>
         <button type="button" className={`kpi ${tab === 'receipts' ? 'is-active' : ''}`} onClick={() => setParams({ tab: 'receipts' })}>
           <span className="kpi__label">Collected in October</span>
           <span className="kpi__value">PKR 4.96 Cr</span>
-          <span className="small text-2">81% of scheduled (PKR 6.12 Cr) · Sept was 88%</span>
+          <span className="small text-2">81% of scheduled · Sept 88%</span>
         </button>
       </div>
 
-      <div className="split">
-        <section className="panel panel--clip" style={{ flex: '999 1 560px', minWidth: 0 }}>
+      <section className="panel panel--clip">
           <div role="tablist" className="tabs" aria-label="Booking lists">
             {TABS.map((t) => (
               <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className="tab" onClick={() => setParams(t.key === 'overdue' ? {} : { tab: t.key })}>
@@ -135,11 +139,10 @@ export function Bookings() {
             </div>
           ) : (
             <div className="table-scroll">
-              <table className="dt" style={{ minWidth: 760 }}>
+              <table className="dt" style={{ minWidth: 720 }}>
                 <thead>
                   <tr>
                     <th>Buyer · booking</th>
-                    <th>Unit</th>
                     <th>Instalment</th>
                     <th>{tab === 'overdue' ? 'Overdue ↓' : 'Status'}</th>
                     <th className="num">Amount</th>
@@ -151,19 +154,16 @@ export function Bookings() {
                 </thead>
                 <tbody>
                   {(tab === 'overdue' ? rows : rows.map((r, i) => ({ ...r, days: -((i * 4) % 28) - 2 }))).map((r) => (
-                    <tr key={r.bk} className={r.bk === sel?.bk ? 'is-selected' : undefined} onClick={() => setSelBk(r.bk)} style={{ cursor: 'pointer' }}>
+                    <tr key={r.bk} className={detailOpen && r.bk === sel?.bk ? 'is-selected' : undefined} onClick={() => openDetail(r.bk)} style={{ cursor: 'pointer' }}>
                       <td>
                         <span className="cell-stack">
-                          <button type="button" className="linklike strong ellipsis" style={{ color: 'var(--text)', textAlign: 'left' }} onClick={() => setSelBk(r.bk)}>
+                          <button type="button" className="linklike strong ellipsis" style={{ color: 'var(--text)', textAlign: 'left', textDecoration: 'none' }} onClick={() => openDetail(r.bk)}>
                             {r.name}
                           </button>
                           <span className="small muted">
-                            {r.bk} · agent {r.agent}
+                            {r.bk} · {r.unit} · {r.agent}
                           </span>
                         </span>
-                      </td>
-                      <td>
-                        <UnitTag>{r.unit}</UnitTag>
                       </td>
                       <td className="small">{r.inst}</td>
                       <td>
@@ -204,15 +204,28 @@ export function Bookings() {
           )}
         </section>
 
-        {sel && (
-          <aside aria-labelledby="h-bk" className="panel" style={{ flex: '1 1 380px', maxWidth: 460, display: 'flex', flexDirection: 'column' }}>
-            <div className="stack-1" style={{ padding: 16, borderBottom: '1px solid var(--border)' }}>
-              <div className="row">
-                <h2 id="h-bk" className="panel__title spacer">
-                  {sel.bk} · {sel.name}
-                </h2>
-                <UnitTag>{sel.unit}</UnitTag>
-              </div>
+      {detailOpen && sel && (
+        <Drawer title={`${sel.bk} · ${sel.name}`} sub={<UnitTag>{sel.unit}</UnitTag>} onClose={() => setDetailOpen(false)} footer={<>
+              <Button onClick={() => toast({ text: `Statement sent to ${sel.name}` })}>Send statement</Button>
+              {s.role === 'admin' ? (
+                <Button>Cancel booking</Button>
+              ) : (
+                <DisabledWhy reason="Cancelling a booking needs Owner/Admin approval" lock={false}>
+                  Cancel booking
+                </DisabledWhy>
+              )}
+              {canRecord ? (
+                <Button variant="primary" className="btn--fill" onClick={() => setRecording(sel)}>
+                  Record payment
+                </Button>
+              ) : (
+                <DisabledWhy reason="Only Finance can record payments" variant="primary" fill>
+                  Record payment
+                </DisabledWhy>
+              )}
+            </>}>
+          <div className="stack-1" style={{ paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+              
               <span className="small muted">Booked 14 Feb 2026 by {sel.agent.replace('.', '')} · 3-year quarterly plan · CNIC verified</span>
               <div className="grid-tiles grid-tiles--3" style={{ gap: 8, marginTop: 8 }}>
                 <div className="kv small">
@@ -233,10 +246,10 @@ export function Bookings() {
                 <span style={{ width: '6%', borderRadius: 0, background: 'var(--danger)' }} />
               </span>
             </div>
-            <div className="t-label" style={{ padding: '8px 16px 0' }}>
+            <div className="t-label" style={{ paddingTop: 4 }}>
               Payment schedule
             </div>
-            <div style={{ padding: '4px 8px 8px' }}>
+            <div style={{ margin: '0 -8px' }}>
               {SCHED.map((x) => (
                 <div key={x.n} className="sched-row">
                   <span className="strong">{x.n}</span>
@@ -253,10 +266,10 @@ export function Bookings() {
                 + 6 more instalments to Feb 2029 · Possession charges PKR 10.1 L
               </div>
             </div>
-            <div className="t-label" style={{ padding: '0 16px 8px' }}>
+            <div className="t-label" >
               Receipts
             </div>
-            <div className="stack-2 small" style={{ padding: '0 16px 12px', gap: 6 }}>
+            <div className="stack-2 small" style={{ gap: 6 }}>
               {RECEIPTS.map((r) => (
                 <div key={r.rc} className="row">
                   <span className="spacer">
@@ -267,28 +280,9 @@ export function Bookings() {
                 </div>
               ))}
             </div>
-            <div className="drawer__foot" style={{ marginTop: 'auto' }}>
-              <Button onClick={() => toast({ text: `Statement sent to ${sel.name}` })}>Send statement</Button>
-              {s.role === 'admin' ? (
-                <Button>Cancel booking</Button>
-              ) : (
-                <DisabledWhy reason="Cancelling a booking needs Owner/Admin approval" lock={false}>
-                  Cancel booking
-                </DisabledWhy>
-              )}
-              {canRecord ? (
-                <Button variant="primary" className="btn--fill" onClick={() => setRecording(sel)}>
-                  Record payment
-                </Button>
-              ) : (
-                <DisabledWhy reason="Only Finance can record payments" variant="primary" fill>
-                  Record payment
-                </DisabledWhy>
-              )}
-            </div>
-          </aside>
-        )}
-      </div>
+            
+        </Drawer>
+      )}
 
       {recording && (
         <Modal

@@ -1946,3 +1946,26 @@
     animation: none;
   }
 }
+
+/* Pipeline toolbar: filters behind one button, stage jump as a select */
+.pipe-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.filter-chip[aria-pressed='true'] {
+  border-color: var(--danger-border);
+  background: var(--danger-surface);
+  color: var(--danger);
+  font-weight: 600;
+}
+.filter-chip .count {
+  line-height: 18px;
+  padding: 0 6px;
+  background: var(--brand-600);
+  color: #fff;
+}
+.kcol__head .row {
+  width: 100%;
+}
