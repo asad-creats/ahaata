@@ -130,7 +130,7 @@ export function Pipeline() {
       setKbd(null);
       setOver(null);
     } else if (e.key === 'Enter') {
-      nav('/leads/L-20931');
+      nav(`/leads/${card.id}`);
     }
   };
 
@@ -294,7 +294,7 @@ export function Pipeline() {
                         onKeyDown={(e) => onCardKey(e, c, i)}
                       >
                         <div className="row" style={{ alignItems: 'flex-start', gap: 6 }}>
-                          <Link to="/leads/L-20931" className="cell-link ellipsis spacer" draggable={false} tabIndex={-1}>
+                          <Link to={`/leads/${c.id}`} className="cell-link ellipsis spacer" draggable={false} tabIndex={-1}>
                             {c.name}
                           </Link>
                           <Age state={c.st}>{c.age}</Age>

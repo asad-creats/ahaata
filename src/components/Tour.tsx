@@ -30,8 +30,8 @@ const t = (name: string) => `[data-tour="${name}"]`;
 
 const STEPS: Step[] = [
   { route: '/my-day', role: 'agent', target: t('search'), action: 'type', text: 'B-504', title: 'Find anything fast', body: 'Search by name, phone in any format, CNIC or unit code. Ctrl K jumps here from any screen.' },
-  { route: '/my-day', role: 'agent', target: t('tile-overdue'), action: 'click', title: 'Your day, one queue at a time', body: 'These tiles switch between calls due, overdue follow-ups, site visits and replies you’re waiting on.' },
-  { route: '/my-day', role: 'agent', target: t('call-first'), action: 'click', prep: [t('tile-call')], title: 'Calls sorted by SLA', body: 'The lead closest to breaching its response time is on top. Calling opens the call log straight away.' },
+  { route: '/my-day', role: 'agent', target: t('tile-overdue'), action: 'click', title: 'Your day, one queue at a time', body: 'These pills switch between calls due, overdue follow-ups, site visits and replies you’re waiting on.' },
+  { route: '/my-day', role: 'agent', target: t('call-first'), action: 'click', prep: [t('tile-call')], title: 'Next up: the most urgent lead', body: 'The lead closest to running out of response time sits on top. Calling opens the call log straight away.' },
   { route: '/my-day', role: 'agent', target: t('outcome-Interested'), action: 'click', keep: true, setup: [t('tile-call'), t('call-first')], title: 'Log the call in seconds', body: 'Pick an outcome (required). The next follow-up is already filled in for tomorrow at 11:00.' },
   { route: '/pipeline', role: 'manager', target: t('card-Hamza Siddiqui'), action: 'drag', dragTo: t('dock-lost'), dropName: 'Hamza Siddiqui', title: 'Drag deals between stages', body: 'Move a card to any stage. Lost and Nurture stay docked on the right so they’re always in reach.' },
   { route: '/pipeline', role: 'manager', target: t('reason-Bought elsewhere'), action: 'click', keep: true, setup: ['drop:Hamza Siddiqui'], title: 'Every lost deal has a reason', body: 'A deal can’t be marked lost without a reason. Those reasons feed the Leak finder.' },

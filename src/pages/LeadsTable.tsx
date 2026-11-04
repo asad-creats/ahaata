@@ -363,7 +363,7 @@ export function LeadsTable() {
                     </td>
                     <td>
                       <span className="cell-stack">
-                        <Link to="/leads/L-20931" className="cell-link ellipsis" title={r.name} style={{ maxWidth: 220 }}>
+                        <Link to={`/leads/lt-${r.id}`} className="cell-link ellipsis" title={r.name} style={{ maxWidth: 220 }}>
                           {r.name}
                         </Link>
                         <span className="small muted">{r.phone}</span>

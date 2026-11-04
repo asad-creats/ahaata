@@ -45,8 +45,14 @@ type Store = {
   /** Take a card off the board into Lost or Nurture. Returns an undo. */
   archive: (a: Omit<Archived, 'id' | 'when'> & { fromIndex?: number }) => () => void;
   /** Bring an archived lead back into the pipeline at a stage. Returns an undo. */
-  reopen: (id: string, stageIndex: number, note: string) => () => void;
+  reopen: (id: string, stageIndex: number, note: string, by: string) => () => void;
+  /** Timeline entries added this session, newest first, keyed by lead name. */
+  events: Record<string, LeadEvent[]>;
 };
+
+export type LeadEvent = { id: string; kind: 'lost' | 'nurture' | 'reopen'; title: string; meta: string; body?: string };
+
+const now = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
 const Ctx = createContext<Store | null>(null);
 
@@ -58,39 +64,71 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
 
   const putOnBoard = useCallback((c: Card, stageIndex: number) => setCols((cs) => cs.map((col, i) => (i === stageIndex ? { ...col, n: col.n + 1, cards: [c, ...col.cards] } : col))), []);
 
+  const [events, setEvents] = useState<Record<string, LeadEvent[]>>({});
+  const addEvent = useCallback((lead: string, ev: Omit<LeadEvent, 'id'>) => {
+    const id = `e${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+    setEvents((m) => ({ ...m, [lead]: [{ ...ev, id }, ...(m[lead] ?? [])] }));
+    return () => setEvents((m) => ({ ...m, [lead]: (m[lead] ?? []).filter((e) => e.id !== id) }));
+  }, []);
+
   const archive = useCallback<Store['archive']>(
     ({ fromIndex, ...a }) => {
       const id = `x${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
       const entry: Archived = { ...a, id, when: 'Today' };
       if (fromIndex !== undefined) removeFromBoard(a.card.id);
       setArchived((xs) => [entry, ...xs]);
+      const undoEvent = addEvent(a.card.name, {
+        kind: a.kind,
+        title: a.kind === 'lost' ? `Marked lost · ${a.reason}` : 'Moved to Nurture',
+        meta: `${a.by} · today ${now()} · from ${a.fromStage}`,
+        body: a.kind === 'lost' ? a.note : `${a.reason}. Gets a WhatsApp message on the 1st of each month.`,
+      });
       return () => {
         setArchived((xs) => xs.filter((x) => x.id !== id));
         if (fromIndex !== undefined) putOnBoard(a.card, fromIndex);
+        undoEvent();
       };
     },
-    [removeFromBoard, putOnBoard],
+    [removeFromBoard, putOnBoard, addEvent],
   );
 
   const reopen = useCallback<Store['reopen']>(
-    (id, stageIndex) => {
+    (id, stageIndex, note, by) => {
       const entry = archived.find((x) => x.id === id);
       if (!entry) return () => {};
       const back: Card = { ...entry.card, age: '0m', st: 'g' };
       setArchived((xs) => xs.filter((x) => x.id !== id));
       putOnBoard(back, stageIndex);
+      // Sample leads were archived before this session, so record why they left before the reopen.
+      const hadRecord = (events[entry.card.name] ?? []).some((e) => e.kind === entry.kind);
+      const undoRecord = hadRecord
+        ? () => {}
+        : addEvent(entry.card.name, {
+            kind: entry.kind,
+            title: entry.kind === 'lost' ? `Marked lost · ${entry.reason}` : 'Moved to Nurture',
+            meta: `${entry.by} · ${entry.when} · from ${entry.fromStage}`,
+            body: entry.note ?? (entry.kind === 'nurture' ? entry.reason : undefined),
+          });
+      const undoEvent = addEvent(entry.card.name, {
+        kind: 'reopen',
+        title: `Reopened from ${entry.kind === 'lost' ? 'Lost' : 'Nurture'} → ${STAGES[stageIndex]}`,
+        meta: `${by} · today ${now()}`,
+        body: note,
+      });
       return () => {
         removeFromBoard(back.id);
         setArchived((xs) => [entry, ...xs]);
+        undoEvent();
+        undoRecord();
       };
     },
-    [archived, putOnBoard, removeFromBoard],
+    [archived, events, putOnBoard, removeFromBoard, addEvent],
   );
 
   const value = useMemo<Store>(() => {
     const lost = archived.filter((a) => a.kind === 'lost').length;
-    return { cols, setCols, archived, lostCount: LOST_BASE + lost, nurtureCount: NURTURE_BASE + archived.length - lost, archive, reopen };
-  }, [cols, archived, archive, reopen]);
+    return { cols, setCols, archived, lostCount: LOST_BASE + lost, nurtureCount: NURTURE_BASE + archived.length - lost, archive, reopen, events };
+  }, [cols, archived, archive, reopen, events]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

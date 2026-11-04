@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { ReopenModal } from '../components/Archive';
+import { LEADS } from '../data/leads';
+import { usePipeline, type Archived, type LeadEvent } from '../lib/pipelineStore';
 import { Icon, type IconName } from '../components/Icon';
 import { LogCallForm } from '../components/LogCall';
 import { Avatar, Chip, DisabledWhy, Drawer, Modal, Button, StageBadge, UnitTag } from '../components/ui';
@@ -61,7 +64,117 @@ const FILTERS: { key: Kind; label: string }[] = [
   { key: 'note', label: 'Notes' },
 ];
 
+/** Session events (lost, nurture, reopen) shown on the timeline above older activity. */
+const eventToAct = (e: LeadEvent): Act => ({
+  kind: 'sys',
+  icon: e.kind === 'reopen' ? 'up' : e.kind === 'lost' ? 'close' : 'clock',
+  title: e.title,
+  meta: e.meta,
+  body: e.body ?? '',
+  tone: e.kind === 'lost' ? 'bad' : e.kind === 'reopen' ? 'brand' : undefined,
+});
+
 export function LeadProfile() {
+  const { id = 'L-20931' } = useParams();
+  const { cols, archived, events } = usePipeline();
+  const onBoard = cols.flatMap((c, i) => c.cards.map((card) => ({ card, stage: STAGES[i] }))).find((x) => x.card.id === id);
+  const inArchive = archived.find((a) => a.card.id === id);
+  const row = id.startsWith('lt-') ? LEADS.find((r) => `lt-${r.id}` === id) : undefined;
+  const name = onBoard?.card.name ?? inArchive?.card.name ?? row?.name ?? 'Faraz Ahmed';
+  if (name === 'Faraz Ahmed') return <FarazProfile extra={(events[name] ?? []).map(eventToAct)} />;
+  const card = onBoard?.card ?? inArchive?.card;
+  return (
+    <SimpleProfile
+      lead={{
+        id,
+        name,
+        stage: inArchive ? (inArchive.kind === 'lost' ? 'Lost' : 'Nurture') : onBoard?.stage ?? row?.stage ?? 'New',
+        unit: card?.unit ?? row?.unit ?? '—',
+        src: card?.src ?? row?.src ?? '—',
+        budget: card?.budget ?? row?.budget ?? '—',
+        owner: card?.owner ?? row?.owner ?? '?',
+        phone: row?.phone,
+      }}
+      archivedEntry={inArchive}
+      acts={[
+        ...(events[name] ?? []).map(eventToAct),
+        ...(inArchive && !(events[name] ?? []).length
+          ? [eventToAct({ id: 'seed', kind: inArchive.kind, title: inArchive.kind === 'lost' ? `Marked lost · ${inArchive.reason}` : 'Moved to Nurture', meta: `${inArchive.by} · ${inArchive.when} · from ${inArchive.fromStage}`, body: inArchive.note ?? (inArchive.kind === 'nurture' ? inArchive.reason : '') })]
+          : []),
+        { kind: 'sys', icon: 'sys', title: `Lead created from ${card?.src ?? row?.src ?? 'a form'}`, meta: 'System', body: `Interested in ${card?.unit ?? row?.unit ?? 'a unit'} · budget ${card?.budget ?? row?.budget ?? 'not given'}.` },
+      ]}
+    />
+  );
+}
+
+type SimpleLead = { id: string; name: string; stage: string; unit: string; src: string; budget: string; owner: string; phone?: string };
+
+/** Profile for any lead without hand-written sample data: header, timeline and units. */
+function SimpleProfile({ lead, archivedEntry, acts }: { lead: SimpleLead; archivedEntry?: Archived; acts: Act[] }) {
+  const s = useSession();
+  const [reopening, setReopening] = useState(false);
+  const initials = lead.name.split(' ').map((w) => w[0]).slice(0, 2).join('');
+  return (
+    <>
+      <nav aria-label="Breadcrumb" className="breadcrumb">
+        <Link to="/leads">{s.role === 'agent' ? 'My leads' : 'Leads'}</Link> / {lead.name}
+      </nav>
+      <div className="panel" style={{ padding: 16 }}>
+        <div className="row-wrap" style={{ gap: 16, alignItems: 'flex-start' }}>
+          <Avatar initials={initials} size={48} variant="dark" />
+          <div className="stack-1 spacer" style={{ minWidth: 240 }}>
+            <div className="row-wrap" style={{ gap: 12 }}>
+              <h1 className="t-h1">{lead.name}</h1>
+              {archivedEntry ? <Chip tone={archivedEntry.kind === 'lost' ? 'bad' : 'plain'}>{lead.stage}</Chip> : <StageBadge stage={lead.stage} age="0d" />}
+            </div>
+            <span className="muted">
+              {lead.unit} · {lead.src} · {lead.budget}
+              {lead.phone ? ` · ${lead.phone}` : ''}
+            </span>
+          </div>
+          {archivedEntry ? (
+            <Button variant="primary" icon="up" onClick={() => setReopening(true)}>
+              Reopen lead
+            </Button>
+          ) : (
+            <div className="row-wrap">
+              <Button variant="primary" icon="phone">
+                Call
+              </Button>
+              <Button>WhatsApp</Button>
+            </div>
+          )}
+        </div>
+      </div>
+      <section aria-labelledby="h-act2" className="panel" style={{ maxWidth: 900 }}>
+        <div className="panel__head">
+          <h2 id="h-act2" className="panel__title">
+            Activity
+          </h2>
+        </div>
+        <ol className="timeline">
+          {acts.map((a, i) => (
+            <li key={a.title + i}>
+              <span className={`timeline__icon ${a.tone === 'bad' ? 'is-bad' : a.tone === 'brand' ? 'is-brand' : ''}`}>
+                <Icon name={a.icon} size={14} />
+              </span>
+              <div className="stack-1 min0 spacer" style={{ gap: 2 }}>
+                <div className="row-wrap" style={{ alignItems: 'baseline' }}>
+                  <b className="strong">{a.title}</b>
+                  <span className="small muted">{a.meta}</span>
+                </div>
+                {a.body && <span className="text-2">{a.body}</span>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+      {reopening && archivedEntry && <ReopenModal entry={archivedEntry} onClose={() => setReopening(false)} />}
+    </>
+  );
+}
+
+function FarazProfile({ extra }: { extra: Act[] }) {
   const s = useSession();
   const toast = useToast();
   const [cur, setCur] = useState(7);
@@ -75,7 +188,7 @@ export function LeadProfile() {
   const [skipNote, setSkipNote] = useState('');
   const canReassign = s.role === 'manager' || s.role === 'admin';
 
-  const shown = acts.filter((a) => filter === 'all' || a.kind === filter);
+  const shown = [...extra, ...acts].filter((a) => filter === 'all' || a.kind === filter);
 
   // Stepper: forward moves only; skipping more than 2 stages asks for a note; Token+ needs a booking (Pipeline).
   const step = (i: number) => {

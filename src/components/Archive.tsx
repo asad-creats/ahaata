@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { REOPEN_STAGES, usePipeline, type ArchiveKind, type Archived } from '../lib/pipelineStore';
+import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
 import { Avatar, Button, Chip, Modal, SourceTag, UnitTag } from './ui';
@@ -33,7 +34,7 @@ export function ArchiveList({ kind, query = '', onReopen }: { kind: ArchiveKind;
               <tr key={a.id}>
                 <td>
                   <span className="cell-stack">
-                    <Link to="/leads/L-20931" className="cell-link">
+                    <Link to={`/leads/${a.card.id}`} className="cell-link">
                       {a.card.name}
                     </Link>
                     <span className="row small muted" style={{ gap: 6, marginTop: 2 }}>
@@ -105,6 +106,7 @@ export function ArchiveList({ kind, query = '', onReopen }: { kind: ArchiveKind;
 /** Reopen: pick the stage it returns to and say why (required, shown on the timeline). */
 export function ReopenModal({ entry, onClose, onDone }: { entry: Archived; onClose: () => void; onDone?: () => void }) {
   const { reopen } = usePipeline();
+  const { person } = useSession();
   const toast = useToast();
   const startAt = Math.max(0, REOPEN_STAGES.indexOf(entry.kind === 'nurture' ? 'Contacted' : entry.fromStage));
   const [stage, setStage] = useState(startAt);
@@ -114,7 +116,7 @@ export function ReopenModal({ entry, onClose, onDone }: { entry: Archived; onClo
   const go = () => {
     setTried(true);
     if (!why.trim()) return;
-    const undo = reopen(entry.id, stage, why.trim());
+    const undo = reopen(entry.id, stage, why.trim(), person.name);
     toast({ text: `${entry.card.name} is back in the pipeline · ${REOPEN_STAGES[stage]}`, action: { label: 'Undo', onClick: undo } });
     onClose();
     onDone?.();
@@ -163,7 +165,7 @@ export function ReopenModal({ entry, onClose, onDone }: { entry: Archived; onClo
         />
         {tried && !why.trim() && <span className="field__error">Add a short note so the next agent knows the context.</span>}
       </div>
-      <span className="small muted">The SLA timer restarts at the chosen stage. Owner stays {entry.by === 'System' ? 'unassigned' : entry.by}.</span>
+      <span className="small muted">Your note goes on the lead’s timeline and the SLA timer restarts at the chosen stage. Owner stays {entry.by === 'System' ? 'unassigned' : entry.by}.</span>
     </Modal>
   );
 }
