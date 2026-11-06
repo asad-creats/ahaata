@@ -171,6 +171,10 @@ export function AppTopBar() {
         )}
       </div>
 
+      <button type="button" className="topbar__icon" aria-label="What is Ehata?" title="What is Ehata?" onClick={tour.openIntro}>
+        <Icon name="info" size={20} stroke={1.8} />
+      </button>
+
       <button type="button" className="topbar__btn topbar__tour" onClick={tour.start} disabled={tour.running}>
         <Icon name="play" size={14} />
         <span>Tour</span>

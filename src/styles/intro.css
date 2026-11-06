@@ -1,0 +1,419 @@
+/* First-visit intro: short animated slides on what Ehata is and why */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(13, 26, 20, 0.55);
+  backdrop-filter: blur(3px);
+  animation: intro-fade 0.25s ease-out both;
+}
+.intro__panel {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-1);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  outline: none;
+  animation: intro-rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.intro__progress {
+  display: flex;
+  gap: 4px;
+  padding-right: 32px;
+}
+.intro__progress > span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.intro__progress > span.is-done {
+  background: var(--brand-600);
+}
+.intro__fill {
+  display: block;
+  height: 100%;
+  background: var(--brand-600);
+  transform-origin: left;
+  animation-name: intro-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.intro__fill.is-full {
+  animation: none;
+}
+.intro__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+}
+.intro__stage {
+  height: 210px;
+  border-radius: 12px;
+  background: var(--brand-tint);
+  border: 1px solid var(--brand-tint-border);
+  overflow: hidden;
+  position: relative;
+}
+.intro__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 116px;
+}
+.intro__copy > * {
+  margin: 0;
+  animation: intro-up 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.intro__copy > :nth-child(2) {
+  animation-delay: 0.06s;
+}
+.intro__copy > :nth-child(3) {
+  animation-delay: 0.12s;
+}
+.intro__nav,
+.intro__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.intro__actions {
+  flex-wrap: wrap;
+}
+.intro__actions .btn {
+  flex: 1 1 200px;
+  justify-content: center;
+}
+
+/* Scene building blocks */
+.intro-scene {
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  position: relative;
+}
+.intro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(13, 26, 20, 0.08);
+  white-space: nowrap;
+}
+.intro-chip--brand {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: #fff;
+  animation: intro-pop 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+.intro-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  animation: intro-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.intro-avatar {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--brand-50);
+  color: var(--brand-link);
+  font-weight: 600;
+  font-size: 12px;
+}
+.intro-tag {
+  margin-left: auto;
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.intro-tag--warn {
+  background: var(--warning-bg);
+  color: var(--warning);
+  margin-left: 8px;
+  animation: intro-pop 0.4s 1.6s both;
+}
+
+/* 1 · What: enquiry sources flow into one hub */
+.intro-what__src {
+  position: absolute;
+  animation: intro-src 1.4s cubic-bezier(0.5, 0, 0.3, 1) both;
+}
+.intro-what__src--0 { left: 6%; top: 14%; --dx: 120px; --dy: 40px; }
+.intro-what__src--1 { left: 6%; top: 46%; --dx: 120px; --dy: -20px; }
+.intro-what__src--2 { right: 6%; top: 14%; --dx: -120px; --dy: 40px; }
+.intro-what__src--3 { right: 6%; top: 46%; --dx: -120px; --dy: -20px; }
+.intro-what__hub {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+}
+.intro-what__hub .logo-mark {
+  width: 52px;
+  height: 52px;
+  font-size: 26px;
+  border-radius: 12px;
+  position: relative;
+  z-index: 1;
+  animation: intro-pop 0.5s 0.1s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+.intro-what__pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 16px;
+  border: 2px solid var(--brand-600);
+  animation: intro-pulse 1.6s 0.6s ease-out infinite both;
+}
+.intro-what__out {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 2 · Problem: leads go quiet */
+.intro-problem {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: center;
+  gap: 10px;
+}
+.intro-problem .intro-card.is-lost {
+  animation-name: intro-up, intro-cold;
+  animation-duration: 0.4s, 0.8s;
+  animation-fill-mode: both, forwards;
+}
+.intro-problem .intro-card.is-lost > :not(.intro-tag) {
+  animation: intro-dim 0.8s forwards;
+  animation-delay: var(--d, 0s);
+}
+.intro-problem .intro-tag {
+  animation: intro-pop 0.3s var(--d, 1.6s) both;
+}
+
+/* 3 · Queue: response timer drains, then the call is logged */
+.intro-queue {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+.intro-queue .intro-card.is-first {
+  border-color: var(--brand-600);
+  box-shadow: 0 0 0 3px var(--brand-50);
+}
+.intro-status {
+  flex: none;
+  position: relative;
+  width: 72px;
+  height: 18px;
+}
+.intro-timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  overflow: hidden;
+  animation: intro-out 0.2s 3s forwards;
+}
+.intro-timer > span {
+  display: block;
+  height: 100%;
+  background: var(--warning-bar);
+  transform-origin: left;
+  animation: intro-drain 2.6s 0.4s linear both;
+}
+.intro-done {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success);
+  animation: intro-pop 0.3s 3.1s both;
+}
+
+/* 4 · Units: cells change status live */
+.intro-units {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.intro-units__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 56px);
+  gap: 6px;
+}
+.intro-unit {
+  height: 34px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--mono);
+  background: var(--st-available-bg);
+  border: 1px solid var(--st-available-border);
+  color: var(--st-available-fg);
+}
+.intro-unit.to-hold {
+  animation: intro-hold 0.5s both;
+}
+.intro-unit.to-booked {
+  animation: intro-booked 0.5s both;
+}
+.intro-units__legend {
+  display: flex;
+  gap: 14px;
+  color: var(--text-2);
+}
+.intro-units__legend .sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+.sw--a { background: var(--st-available-bg); border: 1px solid var(--st-available-border); }
+.sw--h { background: var(--st-hold-solid); border: 1px solid var(--st-hold-border); }
+.sw--b { background: var(--st-booked-bg); }
+
+/* 5 · Leaks: funnel bars grow, biggest drop flagged */
+.intro-leaks {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+.intro-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.intro-bar__l {
+  width: 70px;
+  flex: none;
+}
+.intro-bar__track {
+  flex: 1;
+  height: 14px;
+}
+.intro-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--brand-600);
+  transform-origin: left;
+  animation: intro-grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.intro-bar__fill.is-flag {
+  background: var(--warning-bar);
+}
+
+/* 6 · Start */
+.intro-start {
+  display: grid;
+  place-items: center;
+}
+.intro-start__mark {
+  width: 72px;
+  height: 72px;
+  font-size: 36px;
+  border-radius: 18px;
+  animation: intro-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4) both, intro-float 3s 0.6s ease-in-out infinite;
+}
+
+@keyframes intro-fade { from { opacity: 0; } }
+@keyframes intro-rise { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+@keyframes intro-up { from { opacity: 0; transform: translateY(10px); } }
+@keyframes intro-pop { from { opacity: 0; transform: scale(0.6); } }
+@keyframes intro-out { to { opacity: 0; } }
+@keyframes intro-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes intro-dim { to { opacity: 0.45; filter: grayscale(1); } }
+@keyframes intro-cold { to { background: transparent; border-style: dashed; border-color: var(--border-strong); } }
+@keyframes intro-drain { from { transform: scaleX(1); } to { transform: scaleX(0.05); background: var(--danger); } }
+@keyframes intro-grow { from { transform: scaleX(0); } }
+@keyframes intro-float { 50% { transform: translateY(-6px); } }
+@keyframes intro-pulse { from { opacity: 0.8; transform: scale(1); } to { opacity: 0; transform: scale(1.5); } }
+@keyframes intro-src {
+  0% { opacity: 0; transform: scale(0.8); }
+  25% { opacity: 1; transform: none; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.6); }
+}
+@keyframes intro-hold {
+  50% { transform: scale(1.12); }
+  to { background: var(--st-hold-solid); border-color: var(--st-hold-border); color: var(--st-hold-fg); }
+}
+@keyframes intro-booked {
+  50% { transform: scale(1.12); }
+  to { background: var(--st-booked-bg); border-color: var(--st-booked-bg); color: var(--st-booked-fg); }
+}
+
+@media (max-width: 520px) {
+  .intro__panel { padding: 16px; }
+  .intro__stage { height: 190px; }
+  .intro-problem { grid-template-columns: 1fr; gap: 6px; }
+  .intro-problem .intro-card:nth-child(n + 4) { display: none; }
+  .intro-problem .intro-card .small { display: none; }
+  .intro-what__src--0, .intro-what__src--1 { --dx: 80px; }
+  .intro-what__src--2, .intro-what__src--3 { --dx: -80px; }
+  .intro-what__src--0, .intro-what__src--1 { left: 2%; }
+  .intro-what__src--2, .intro-what__src--3 { right: 2%; }
+  .intro-what__out .intro-chip { font-size: 12px; padding: 4px 8px; }
+}
+
+/* Reduced motion: show each slide's end state; slides don't auto-advance. */
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .intro *:not(.intro__fill) {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}
