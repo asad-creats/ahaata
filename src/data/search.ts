@@ -1,4 +1,5 @@
 import { digits } from '../lib/hooks';
+import { leadPath } from '../lib/leadLink';
 
 export type SearchHit = { group: 'Leads' | 'Contacts' | 'Units' | 'Bookings'; title: string; meta: string; to: string; keys: string[] };
 
@@ -6,7 +7,7 @@ const lead = (name: string, phone: string, meta: string, cnic = ''): SearchHit =
   group: 'Leads',
   title: name,
   meta: `${phone} · ${meta}`,
-  to: '/leads/L-20931',
+  to: leadPath(name),
   keys: [name.toLowerCase(), digits(phone), digits(cnic)].filter(Boolean),
 });
 
@@ -21,7 +22,7 @@ const INDEX: SearchHit[] = [
   lead('Nadia Farooq', '0301 220 4419', 'Payment plan shared'),
   lead('Omer Farooq', '0333 102 7781', 'Visit done · B-1001'),
   lead('Imran Shah', '0345 220 9174', 'Visit scheduled · B-405'),
-  { group: 'Contacts', title: 'Ayesha Malik', meta: 'Buyer contact · 0333 410 9921', to: '/leads/L-20931', keys: ['ayesha malik', '03334109921'] },
+  { group: 'Contacts', title: 'Ayesha Malik', meta: 'Buyer contact · 0333 410 9921', to: leadPath('Ayesha Malik'), keys: ['ayesha malik', '03334109921'] },
   { group: 'Units', title: 'B-504', meta: 'Tower B · 2-bed · On hold · PKR 1.85 Cr', to: '/inventory?unit=B-504', keys: ['b-504', 'b504'] },
   { group: 'Units', title: 'B-702', meta: 'Tower B · 2-bed · Available · PKR 1.92 Cr', to: '/inventory?unit=B-702', keys: ['b-702', 'b702'] },
   { group: 'Units', title: 'Plot C-114', meta: 'Saffron Gardens · 10 marla · Available', to: '/site', keys: ['c-114', 'c114', 'plot c-114'] },

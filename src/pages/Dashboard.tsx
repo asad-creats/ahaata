@@ -51,7 +51,7 @@ export function Dashboard() {
 
       <div className="grid-tiles grid-tiles--6">
         {KPIS.map((k) => (
-          <Link key={k.label} to={k.to} className="kpi" style={{ padding: '12px 14px' }}>
+          <Link key={k.label} to={k.to} data-tour={`kpi-${k.label}`} className="kpi" style={{ padding: '12px 14px' }}>
             <span className="kpi__label ellipsis">{k.label}</span>
             <span className="kpi__value">{k.v}</span>
             <span className="kpi__sub row" style={{ gap: 4, color: k.good ? 'var(--success)' : 'var(--danger)' }}>
@@ -77,7 +77,7 @@ export function Dashboard() {
               return (
                 <Link key={name} to="/leads" className="funnel-row" aria-label={`${name}: ${n.toLocaleString('en-US')} leads${conv ? `, ${conv}% from previous stage` : ''}`}>
                   <span className="small ellipsis">{name}</span>
-                  <span className="funnel-row__track">
+                  <span className="funnel-row__track" data-tour={name === 'Visit done' ? 'funnel-drop' : undefined}>
                     <span className="funnel-row__bar" style={{ width: `${((n / 1284) * 100).toFixed(1)}%` }} />
                     <span className="funnel-row__prev" style={{ left: `${((prev / 1284) * 100).toFixed(1)}%` }} />
                   </span>

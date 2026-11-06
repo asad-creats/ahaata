@@ -6,6 +6,7 @@ import { LANDING } from '../lib/nav';
 import { ORGS, PEOPLE, useSession, type Role } from '../lib/session';
 import { Icon } from './Icon';
 import { Avatar } from './ui';
+import { useTour } from './Tour';
 
 const NOTIFS = [
   { t: 'SLA in 4 min — Bilal Hussain (Facebook) not yet called', m: 'Just now', alert: true },
@@ -16,6 +17,7 @@ const NOTIFS = [
 export function AppTopBar() {
   const s = useSession();
   const nav = useNavigate();
+  const tour = useTour();
   // Org switcher only renders for users with access to 2+ organisations (agency staff).
   const multiOrg = s.role !== 'finance' && s.role !== 'dealer';
 
@@ -131,7 +133,7 @@ export function AppTopBar() {
       </div>
 
       <div className="topbar__search-wrap" ref={find.ref}>
-        <label className="topbar__search">
+        <label className="topbar__search" data-tour="search">
           <Icon name="search" />
           <input
             ref={inputRef}
@@ -169,6 +171,11 @@ export function AppTopBar() {
         )}
       </div>
 
+      <button type="button" className="topbar__btn topbar__tour" onClick={tour.start} disabled={tour.running}>
+        <Icon name="play" size={14} />
+        <span>Tour</span>
+      </button>
+
       <div className="topbar__switch" ref={notif.ref}>
         <button type="button" className="topbar__icon" aria-label={`Notifications, ${NOTIFS.length} unread`} aria-expanded={notif.open} onClick={notif.toggle}>
           <Icon name="bell" size={20} stroke={1.8} />
@@ -191,7 +198,7 @@ export function AppTopBar() {
       </div>
 
       <div className="topbar__switch" ref={user.ref}>
-        <button type="button" className="topbar__user" aria-label="User menu" aria-expanded={user.open} onClick={user.toggle}>
+        <button type="button" className="topbar__user" data-tour="user" aria-label="User menu" aria-expanded={user.open} onClick={user.toggle}>
           <Avatar initials={s.person.initials} />
           <span className="topbar__who">
             <span className="strong">{s.person.name}</span>

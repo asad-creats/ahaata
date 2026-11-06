@@ -34,3 +34,14 @@ npm run dev
 | `/design-system`, `/states`, `/roles` | Reference screens |
 
 Use the user menu (top right) to view the app as Agent, Sales Manager, Owner/Admin, Dealer or Finance, and to switch dark mode. Navigation, landing page and permissions follow the role.
+
+## Hosting on GitHub Pages
+
+`.github/workflows/pages.yml` builds the app and publishes it to `https://<owner>.github.io/<repo>/` on every push to `main`. The hosted build keeps the screen after a `#` (for example `/ahaata/#/pipeline`), because Pages serves plain files and can't answer `/ahaata/pipeline` itself.
+
+One-time setup in the repository settings:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions**
+2. **Settings → General → Default branch: `main`** (Pages only deploys from the default branch)
+
+The site still runs on sample data in the browser; nothing is saved to a server yet.

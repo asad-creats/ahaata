@@ -45,6 +45,8 @@ export const ICONS = {
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
   plus: 'M12 5v14M5 12h14',
   close: 'M6 6l12 12M18 6L6 18',
+  play: 'M7 5l12 7-12 7z',
+  pause: 'M8 5v14M16 5v14',
 } as const;
 
 export type IconName = keyof typeof ICONS;

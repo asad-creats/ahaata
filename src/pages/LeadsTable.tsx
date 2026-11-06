@@ -1,5 +1,8 @@
 import { useMemo, useRef, useState, type MouseEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArchiveList, ReopenModal } from '../components/Archive';
+import { usePipeline, type ArchiveKind, type Archived } from '../lib/pipelineStore';
+import type { Card } from '../data/pipeline';
 import { Icon } from '../components/Icon';
 import { Age, DisabledWhy, FilterChip, Modal, Pagination, SourceTag, Button } from '../components/ui';
 import { STAGES, LOST_REASONS } from '../data/pipeline';
@@ -15,7 +18,12 @@ export function LeadsTable() {
   const s = useSession();
   const toast = useToast();
   const [rows, setRows] = useState<LeadRow[]>(LEADS);
-  const [view, setView] = useState('stuck');
+  const [params] = useSearchParams();
+  const [view, setView] = useState(params.get('view') ?? 'stuck');
+  const { archive, lostCount, nurtureCount } = usePipeline();
+  const [reopening, setReopening] = useState<Archived | null>(null);
+  const [archiveQuery, setArchiveQuery] = useState('');
+  const archiveView: ArchiveKind | null = view === 'lost' || view === 'nurture' ? view : null;
   const [q, setQ] = useState('');
   const [filters, setFilters] = useState({ stage: true, owner: true });
   const [sel, setSel] = useState<Set<string>>(() => new Set(LEADS.slice(0, 3).map((r) => r.id)));
@@ -27,6 +35,7 @@ export function LeadsTable() {
   const lastClicked = useRef<number | null>(null);
   const assign = usePopover();
   const stage = usePopover();
+  const addFilter = usePopover();
   const [notify, setNotify] = useState(true);
   const [agentPick, setAgentPick] = useState('Usman Tariq');
 
@@ -78,8 +87,44 @@ export function LeadsTable() {
     setAllMatching(false);
   };
 
+  const toCard = (r: LeadRow): Card => ({
+    id: `lt-${r.id}`,
+    name: r.name,
+    unit: r.unit,
+    src: r.src,
+    owner: r.owner === 'Unassigned' ? '?' : r.owner.split(' ').map((w) => w[0]).join(''),
+    budget: r.budget,
+    age: r.age,
+    st: r.st,
+  });
+
+  /** Move the selected rows off the open list into Lost or Nurture, with one undo for all. */
+  const archiveSelected = (kind: ArchiveKind, reason: string) => {
+    const ids = new Set(sel);
+    const picked = rows.filter((r) => allMatching || ids.has(r.id));
+    const before = rows;
+    const undos = picked.map((r) => archive({ card: toCard(r), kind, fromStage: r.stage, reason, by: s.person.name }));
+    setRows((rs) => rs.filter((r) => !picked.includes(r)));
+    setSel(new Set());
+    setAllMatching(false);
+    toast({
+      text: `${count.toLocaleString('en-US')} leads ${kind === 'lost' ? `marked as lost · ${reason}` : 'moved to Nurture'}`,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          undos.forEach((u) => u());
+          setRows(before);
+        },
+      },
+    });
+  };
+
   const doStage = (to: string) => {
     stage.setOpen(false);
+    if (to === 'Nurture') {
+      archiveSelected('nurture', 'Moved in bulk · not ready yet');
+      return;
+    }
     if (to === 'Lost') {
       setLostReason('');
       setLostOpen(true);
@@ -117,11 +162,32 @@ export function LeadsTable() {
               {v.label} <span className={`tab__n ${v.alert ? 'tab__n--alert' : ''}`}>{v.n}</span>
             </button>
           ))}
+          <span className="divider-v" aria-hidden="true" />
+          <button type="button" role="tab" aria-selected={view === 'lost'} className="tab" data-tour="view-tab-lost" onClick={() => setView('lost')}>
+            Lost <span className="tab__n">{lostCount}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={view === 'nurture'} className="tab" onClick={() => setView('nurture')}>
+            Nurture <span className="tab__n">{nurtureCount}</span>
+          </button>
           <button type="button" className="tab" style={{ color: 'var(--brand-link)', fontWeight: 600 }} onClick={() => toast({ text: 'View saved to “My views”. Managers can publish it to the team.' })}>
             + Save current view
           </button>
         </div>
 
+        {archiveView ? (
+          <>
+            <div className="row-wrap" style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+              <label className="search" style={{ minWidth: 220 }}>
+                <Icon name="search" size={14} />
+                <input aria-label={`Search ${archiveView} leads`} placeholder="Name or reason" value={archiveQuery} onChange={(e) => setArchiveQuery(e.target.value)} />
+              </label>
+              <span className="spacer" />
+              <span className="small muted">{archiveView === 'lost' ? 'Closed deals with their reason' : 'On the monthly WhatsApp message series'}</span>
+            </div>
+            <ArchiveList kind={archiveView} query={archiveQuery} onReopen={setReopening} />
+          </>
+        ) : (
+          <>
         {count > 0 && (
           <div className="bulkbar" role="region" aria-label="Bulk actions">
             <span className="strong" style={{ padding: '0 4px' }}>
@@ -134,7 +200,7 @@ export function LeadsTable() {
             )}
             <span className="divider-v" style={{ background: 'var(--brand-700)' }} />
             <div style={{ position: 'relative' }} ref={assign.ref}>
-              <button type="button" className="btn btn--sm bulkbar__primary" aria-expanded={assign.open} onClick={assign.toggle}>
+              <button type="button" className="btn btn--sm bulkbar__primary" data-tour="assign" aria-expanded={assign.open} onClick={assign.toggle}>
                 Assign to…
               </button>
               {assign.open && (
@@ -231,12 +297,26 @@ export function LeadsTable() {
           </label>
           {filters.stage && <FilterChip on label="Stage" value="Qualified +3" onRemove={() => setFilters((f) => ({ ...f, stage: false }))} />}
           {filters.owner && <FilterChip on label="Owner" value="Unassigned, Sana N." onRemove={() => setFilters((f) => ({ ...f, owner: false }))} />}
-          <FilterChip label="Source" />
-          <FilterChip label="Budget" />
           <FilterChip label="Created" value="Last 30 days" />
-          <button type="button" className="filter-add" onClick={() => setFilters({ stage: true, owner: true })}>
-            + Filter
-          </button>
+          <div style={{ position: 'relative' }} ref={addFilter.ref}>
+            <button type="button" className="filter-add" aria-expanded={addFilter.open} onClick={addFilter.toggle}>
+              + Filter
+            </button>
+            {addFilter.open && (
+              <div role="menu" className="menu" style={{ top: 38, left: 0 }}>
+                {[
+                  ['Stage', () => setFilters((f) => ({ ...f, stage: true }))],
+                  ['Owner', () => setFilters((f) => ({ ...f, owner: true }))],
+                  ['Source', () => toast({ text: 'Source filter: pick Facebook, Zameen, Graana, Expo, Dealer or Walk-in' })],
+                  ['Budget', () => toast({ text: 'Budget filter: set a PKR range' })],
+                ].map(([l, fn]) => (
+                  <button key={l as string} type="button" role="menuitem" className="menu__item" onClick={() => { (fn as () => void)(); addFilter.setOpen(false); }}>
+                    {l as string}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <span className="spacer" />
           <button type="button" className="btn btn--ghost btn--sm">
             Columns
@@ -283,7 +363,7 @@ export function LeadsTable() {
                     </td>
                     <td>
                       <span className="cell-stack">
-                        <Link to="/leads/L-20931" className="cell-link ellipsis" title={r.name} style={{ maxWidth: 220 }}>
+                        <Link to={`/leads/lt-${r.id}`} className="cell-link ellipsis" title={r.name} style={{ maxWidth: 220 }}>
                           {r.name}
                         </Link>
                         <span className="small muted">{r.phone}</span>
@@ -333,7 +413,11 @@ export function LeadsTable() {
           </table>
         </div>
         <Pagination summary={`Showing ${(page - 1) * 50 + 1}–${Math.min(page * 50, TOTAL)} of ${TOTAL.toLocaleString('en-US')} · 50 per page`} page={page} pages={26} onPage={setPage} />
+          </>
+        )}
       </div>
+
+      {reopening && <ReopenModal entry={reopening} onClose={() => setReopening(null)} />}
 
       {lostOpen && (
         <Modal
@@ -347,11 +431,8 @@ export function LeadsTable() {
                 variant="danger"
                 disabled={!lostReason}
                 onClick={() => {
-                  const ids = new Set(sel);
-                  setRows((rs) => rs.filter((r) => !(allMatching || ids.has(r.id))));
-                  setSel(new Set());
                   setLostOpen(false);
-                  toast({ text: `${count.toLocaleString('en-US')} leads marked as lost · ${lostReason}` });
+                  archiveSelected('lost', lostReason);
                 }}
               >
                 Mark as lost

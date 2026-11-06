@@ -1,8 +1,15 @@
-import { useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Age, Avatar, Button, Drawer, FilterChip, Modal, SourceTag, UnitTag } from '../components/ui';
-import { BOOKING_FROM, COLUMNS, LOST_REASONS, STAGES, type Card, type Column } from '../data/pipeline';
+import { Age, Avatar, Button, Drawer, Modal, SourceTag, UnitTag } from '../components/ui';
+import { BOOKING_FROM, LOST_REASONS, STAGES, type Card } from '../data/pipeline';
+import { ArchiveList, ReopenModal } from '../components/Archive';
+import { usePipeline, type ArchiveKind, type Archived } from '../lib/pipelineStore';
+import { useSession } from '../lib/session';
+import { Icon } from '../components/Icon';
+import { usePopover } from '../lib/hooks';
 import { useToast } from '../lib/toast';
+
+const NO_FILTERS = { agent: 'All team (9)', source: 'Any', unit: 'Any' };
 
 /** Drop targets: column index 0–11, or the docked Lost / Nurture zones. */
 type Target = number | 'lost' | 'nurture';
@@ -15,10 +22,14 @@ type Pending = { card: Card; from: number; to: Target };
 export function Pipeline() {
   const toast = useToast();
   const nav = useNavigate();
-  const [cols, setCols] = useState<Column[]>(() => COLUMNS.map((c) => ({ ...c, cards: [...c.cards] })));
-  const [lostCount, setLostCount] = useState(88);
-  const [nurtureCount, setNurtureCount] = useState(164);
+  const { cols, setCols, lostCount, nurtureCount, archive } = usePipeline();
+  const { person } = useSession();
+  const [listOf, setListOf] = useState<ArchiveKind | null>(null);
+  const [reopening, setReopening] = useState<Archived | null>(null);
   const [overdueOnly, setOverdueOnly] = useState(false);
+  const [filters, setFilters] = useState(NO_FILTERS);
+  const filterPop = usePopover();
+  const activeFilters = Object.values(filters).filter((v) => !v.startsWith('Any') && !v.startsWith('All')).length;
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<Target | null>(null);
   const [kbd, setKbd] = useState<{ id: string; to: number } | null>(null);
@@ -45,8 +56,6 @@ export function Pipeline() {
       }),
     );
 
-  const remove = (card: Card, from: number) => setCols((cs) => cs.map((c, i) => (i === from ? { ...c, n: c.n - 1, cards: c.cards.filter((x) => x.id !== card.id) } : c)));
-
   /** Lost needs a reason; Token or later needs a Booking. Everything else moves straight away. */
   const drop = (id: string, to: Target) => {
     const hit = find(id);
@@ -60,26 +69,34 @@ export function Pipeline() {
       return;
     }
     if (to === 'nurture') {
-      remove(card, from);
-      setNurtureCount((n) => n + 1);
-      toast({ text: `${card.name} moved to Nurture · monthly WhatsApp drip`, action: { label: 'Undo', onClick: () => undoInto(card, from, () => setNurtureCount((n) => n - 1)) } });
+      const undo = archive({ card, kind: 'nurture', fromStage: STAGES[from], reason: 'Not ready yet', by: person.name, fromIndex: from });
+      toast({ text: `${card.name} moved to Nurture · monthly WhatsApp messages`, action: { label: 'Undo', onClick: undo } });
       return;
     }
     move(card, from, to);
     toast({ text: `${card.name} moved to ${STAGES[to]}`, action: { label: 'Undo', onClick: () => move(card, to, from) } });
   };
 
-  const undoInto = (card: Card, to: number, after: () => void) => {
-    setCols((cs) => cs.map((c, i) => (i === to ? { ...c, n: c.n + 1, cards: [card, ...c.cards] } : c)));
-    after();
+  // The guided tour "drags" a card by announcing the drop; it lands exactly like a mouse drop.
+  const dropByName = useRef<(name: string, to: Target) => void>(() => {});
+  dropByName.current = (name, to) => {
+    const card = cols.flatMap((c) => c.cards).find((c) => c.name === name);
+    if (card) drop(card.id, to);
   };
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent<{ name: string; to: Target }>).detail;
+      dropByName.current(d.name, d.to);
+    };
+    window.addEventListener('tour:drop', h);
+    return () => window.removeEventListener('tour:drop', h);
+  }, []);
 
   const confirmLost = () => {
     setTried(true);
     if (!pending || !reason || (reason.startsWith('Other') && !lostNote.trim())) return;
-    remove(pending.card, pending.from);
-    setLostCount((n) => n + 1);
-    toast({ text: `${pending.card.name} marked as lost · ${reason}` });
+    const undo = archive({ card: pending.card, kind: 'lost', fromStage: STAGES[pending.from], reason, note: lostNote.trim() || undefined, by: person.name, fromIndex: pending.from });
+    toast({ text: `${pending.card.name} marked as lost · ${reason}`, action: { label: 'Undo', onClick: undo } });
     setPending(null);
   };
 
@@ -113,7 +130,7 @@ export function Pipeline() {
       setKbd(null);
       setOver(null);
     } else if (e.key === 'Enter') {
-      nav('/leads/L-20931');
+      nav(`/leads/${card.id}`);
     }
   };
 
@@ -155,34 +172,69 @@ export function Pipeline() {
         </button>
       </div>
 
-      <div className="row-wrap">
-        <FilterChip label="Agent" value="All team (9)" />
-        <FilterChip label="Source" value="Any" />
-        <FilterChip label="Unit type" value="Any" />
-        <label className="filter-chip check">
-          <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} /> Only overdue in stage
-        </label>
-        <span className="spacer" />
-        <span className="small muted">Age badge = days in current stage vs. stage SLA</span>
-      </div>
-
-      <nav aria-label="Jump to stage" className="stage-strip">
-        {cols.map((c, i) => (
-          <button
-            key={c.name}
-            type="button"
-            className="stage-strip__item"
-            style={{ background: i < 6 ? 'var(--brand-tint)' : undefined }}
-            onClick={() => document.getElementById(`col-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })}
-          >
-            <span className="xsmall muted nowrap">{c.name}</span>
-            <span className="row bold" style={{ gap: 6, alignItems: 'baseline' }}>
-              {c.n}
-              {c.late > 0 && <span className="xsmall strong danger-text">{c.late} late</span>}
-            </span>
+      <div className="pipe-toolbar">
+        <div style={{ position: 'relative' }} ref={filterPop.ref}>
+          <button type="button" className="filter-chip" aria-expanded={filterPop.open} onClick={filterPop.toggle}>
+            <Icon name="funnel" size={14} />
+            Filters
+            {activeFilters > 0 && <span className="count">{activeFilters}</span>}
           </button>
-        ))}
-      </nav>
+          {filterPop.open && (
+            <div className="menu stack-3" style={{ top: 40, left: 0, width: 280, padding: 16 }} role="dialog" aria-label="Pipeline filters">
+              {(
+                [
+                  ['agent', 'Agent', ['All team (9)', 'Usman Tariq', 'Maryam Baig', 'Fahad Nadeem', 'Sana Naveed']],
+                  ['source', 'Source', ['Any', 'Facebook', 'Zameen', 'Graana', 'Expo', 'Dealer', 'Walk-in', 'Website']],
+                  ['unit', 'Unit type', ['Any', 'Studio', '1-bed', '2-bed', '3-bed', 'Plot', 'Shop']],
+                ] as [keyof typeof filters, string, string[]][]
+              ).map(([k, label, opts]) => (
+                <label key={k} className="field">
+                  <span className="field__label">{label}</span>
+                  <select className="select select--sm" value={filters[k]} onChange={(e) => setFilters((f) => ({ ...f, [k]: e.target.value }))}>
+                    {opts.map((o) => (
+                      <option key={o}>{o}</option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+              <button type="button" className="btn btn--ghost btn--sm" style={{ alignSelf: 'flex-start' }} onClick={() => setFilters(NO_FILTERS)}>
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
+        <button type="button" className="filter-chip" aria-pressed={overdueOnly} data-on={overdueOnly} onClick={() => setOverdueOnly((x) => !x)}>
+          <Icon name="warn" size={14} />
+          Overdue only
+        </button>
+        <span className="spacer" />
+        <label className="row small muted" style={{ gap: 6 }}>
+          Jump to
+          <select
+            className="select select--sm"
+            value=""
+            onChange={(e) => document.getElementById(`col-${e.target.value}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })}
+          >
+            <option value="" disabled>
+              Stage…
+            </option>
+            {cols.map((c, i) => (
+              <option key={c.name} value={i}>
+                {c.name} · {c.n}
+                {c.late ? ` · ${c.late} late` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="why">
+          <button type="button" className="btn btn--ghost btn--icon btn--sm" aria-describedby="age-help" aria-label="What the age badge means" style={{ color: 'var(--text-muted)' }}>
+            <Icon name="info" />
+          </button>
+          <span role="tooltip" id="age-help" className="why__tip" style={{ left: 'auto', right: 0 }}>
+            Age badge = days in the current stage. Amber past 75% of the stage SLA, red when overdue.
+          </span>
+        </span>
+      </div>
 
       {picked && (
         <div className="sr-only" aria-live="assertive">
@@ -194,7 +246,14 @@ export function Pipeline() {
         <div className="board__scroll" ref={boardRef}>
           <div className="board__cols">
             {cols.map((col, i) => {
-              const cards = overdueOnly ? col.cards.filter((c) => c.st !== 'g') : col.cards;
+              const ini = filters.agent.split(' ').map((w) => w[0]).join('');
+              const cards = col.cards.filter(
+                (c) =>
+                  (!overdueOnly || c.st !== 'g') &&
+                  (filters.source === 'Any' || c.src === filters.source) &&
+                  (filters.unit === 'Any' || c.unit.toLowerCase().includes(filters.unit.toLowerCase())) &&
+                  (filters.agent.startsWith('All') || c.owner === ini),
+              );
               const isOver = over === i;
               return (
                 <section key={col.name} id={`col-${i}`} aria-label={col.name} className={`kcol ${isOver ? 'kcol--over' : ''}`} {...dropProps(i)}>
@@ -202,6 +261,11 @@ export function Pipeline() {
                     <div className="row" style={{ gap: 6 }}>
                       <b className="strong">{col.name}</b>
                       <span className="small muted">{col.n}</span>
+                      {col.late > 0 && (
+                        <span className="xsmall strong danger-text" style={{ marginLeft: 'auto' }}>
+                          {col.late} late
+                        </span>
+                      )}
                     </div>
                     <span className="small muted">
                       {col.value} · SLA {col.sla}
@@ -212,6 +276,7 @@ export function Pipeline() {
                     {cards.map((c) => (
                       <article
                         key={c.id}
+                        data-tour={`card-${c.name}`}
                         className={`kcard ${dragId === c.id ? 'kcard--dragging' : ''} ${kbd?.id === c.id ? 'kcard--picked' : ''}`}
                         draggable
                         tabIndex={0}
@@ -229,7 +294,7 @@ export function Pipeline() {
                         onKeyDown={(e) => onCardKey(e, c, i)}
                       >
                         <div className="row" style={{ alignItems: 'flex-start', gap: 6 }}>
-                          <Link to="/leads/L-20931" className="cell-link ellipsis spacer" draggable={false} tabIndex={-1}>
+                          <Link to={`/leads/${c.id}`} className="cell-link ellipsis spacer" draggable={false} tabIndex={-1}>
                             {c.name}
                           </Link>
                           <Age state={c.st}>{c.age}</Age>
@@ -244,7 +309,7 @@ export function Pipeline() {
                         </div>
                       </article>
                     ))}
-                    {col.n - col.cards.length > 0 && !overdueOnly && (
+                    {col.n - col.cards.length > 0 && !overdueOnly && activeFilters === 0 && (
                       <button type="button" className="btn btn--ghost btn--sm" style={{ justifyContent: 'flex-start', padding: '0 4px' }}>
                         + {col.n - col.cards.length} more
                       </button>
@@ -257,22 +322,48 @@ export function Pipeline() {
         </div>
 
         <aside aria-label="Drop zones" className="board__docks">
-          <div className={`dock dock--lost ${over === 'lost' ? 'dock--over' : ''}`} {...dropProps('lost')}>
+          <div data-tour="dock-lost" className={`dock dock--lost ${over === 'lost' ? 'dock--over' : ''}`} {...dropProps('lost')}>
             <div className="row" style={{ gap: 6 }}>
               <b>Lost</b>
               <span className="small muted">· {lostCount} this month</span>
             </div>
             <span className="small strong danger-text">{dragId || kbd ? 'Release to choose a reason' : 'Drop a card here to mark it lost'}</span>
+            <button type="button" className="btn btn--secondary btn--sm dock__view" data-tour="view-lost" onClick={() => setListOf('lost')}>
+              View lost leads
+            </button>
           </div>
           <div className={`dock dock--nurture ${over === 'nurture' ? 'dock--over' : ''}`} {...dropProps('nurture')}>
             <div className="row" style={{ gap: 6 }}>
               <b>Nurture</b>
               <span className="small muted">· {nurtureCount}</span>
             </div>
-            <span className="small muted">Monthly WhatsApp drip; resurfaces on new activity</span>
+            <span className="small muted">Monthly WhatsApp messages; comes back on new activity</span>
+            <button type="button" className="btn btn--secondary btn--sm dock__view" data-tour="view-nurture" onClick={() => setListOf('nurture')}>
+              View nurture list
+            </button>
           </div>
         </aside>
       </div>
+
+      {listOf && (
+        <Drawer
+          wide
+          title={listOf === 'lost' ? `Lost · ${lostCount} this month` : `Nurture · ${nurtureCount}`}
+          sub={listOf === 'lost' ? 'Closed deals and why. Reopen one if the buyer comes back.' : 'Not ready yet. Each gets a WhatsApp message on the 1st of the month.'}
+          onClose={() => setListOf(null)}
+          footer={
+            <Link to={`/leads?view=${listOf}`} className="btn btn--ghost btn--sm">
+              Open in Leads table
+            </Link>
+          }
+        >
+          <div className="panel panel--clip" style={{ margin: '-16px', border: 0, borderRadius: 0 }}>
+            <ArchiveList kind={listOf} onReopen={setReopening} />
+          </div>
+        </Drawer>
+      )}
+
+      {reopening && <ReopenModal entry={reopening} onClose={() => setReopening(null)} />}
 
       {pending && pending.to === 'lost' && (
         <Modal
@@ -293,7 +384,7 @@ export function Pipeline() {
               Lost reason (required)
             </legend>
             {LOST_REASONS.map((r) => (
-              <label key={r} className={`lost-reason ${reason === r ? 'is-on' : ''}`}>
+              <label key={r} data-tour={`reason-${r}`} className={`lost-reason ${reason === r ? 'is-on' : ''}`}>
                 <input type="radio" name="lost" checked={reason === r} onChange={() => setReason(r)} /> {r}
               </label>
             ))}

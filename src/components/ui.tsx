@@ -223,12 +223,12 @@ export function Modal({ title, sub, onClose, children, actions, width = 440 }: {
   );
 }
 
-export function Drawer({ title, sub, onClose, children, footer }: { title: ReactNode; sub?: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+export function Drawer({ title, sub, onClose, children, footer, wide }: { title: ReactNode; sub?: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   useEscape(onClose);
   const id = useId();
   return (
     <div className="scrim scrim--right" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside role="dialog" aria-modal="true" aria-labelledby={id} className="drawer">
+      <aside role="dialog" aria-modal="true" aria-labelledby={id} className={`drawer ${wide ? 'drawer--wide' : ''}`}>
         <div className="drawer__head">
           <div className="spacer">
             <div id={id} className="t-h2">

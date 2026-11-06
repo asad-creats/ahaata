@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { ReopenModal } from '../components/Archive';
+import { LEADS } from '../data/leads';
+import { AWAITING, CALLS, OVERDUE, VISITS } from '../data/agent';
+import { slug } from '../lib/leadLink';
+import { usePipeline, type Archived, type LeadEvent } from '../lib/pipelineStore';
 import { Icon, type IconName } from '../components/Icon';
 import { LogCallForm } from '../components/LogCall';
 import { Avatar, Chip, DisabledWhy, Drawer, Modal, Button, StageBadge, UnitTag } from '../components/ui';
@@ -7,6 +12,7 @@ import { STAGES } from '../data/pipeline';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 
+type Section = 'activity' | 'units' | 'history';
 type Kind = 'all' | 'call' | 'wa' | 'visit' | 'note';
 type Act = { kind: Kind | 'sys' | 'doc'; icon: IconName; title: string; meta: string; body: string; tone?: 'bad' | 'brand' };
 
@@ -60,11 +66,130 @@ const FILTERS: { key: Kind; label: string }[] = [
   { key: 'note', label: 'Notes' },
 ];
 
+/** Session events (lost, nurture, reopen) shown on the timeline above older activity. */
+const eventToAct = (e: LeadEvent): Act => ({
+  kind: 'sys',
+  icon: e.kind === 'reopen' ? 'up' : e.kind === 'lost' ? 'close' : 'clock',
+  title: e.title,
+  meta: e.meta,
+  body: e.body ?? '',
+  tone: e.kind === 'lost' ? 'bad' : e.kind === 'reopen' ? 'brand' : undefined,
+});
+
 export function LeadProfile() {
+  const { id = 'L-20931' } = useParams();
+  const { cols, archived, events } = usePipeline();
+  // A lead is found by card id or by name slug, on the board, in Lost/Nurture, in the leads table or in today's queues.
+  const matches = (cardId: string, name: string) => cardId === id || slug(name) === id;
+  const onBoard = cols.flatMap((c, i) => c.cards.map((card) => ({ card, stage: STAGES[i] }))).find((x) => matches(x.card.id, x.card.name));
+  const inArchive = archived.find((a) => matches(a.card.id, a.card.name));
+  const row = LEADS.find((r) => `lt-${r.id}` === id || r.id === id);
+  const queued = CALLS.find((c) => slug(c.name) === id);
+  const other = [...OVERDUE, ...AWAITING, ...VISITS].find((x) => slug(x.name) === id);
+  const name =
+    id === 'L-20931'
+      ? 'Faraz Ahmed'
+      : onBoard?.card.name ?? inArchive?.card.name ?? row?.name ?? queued?.name ?? other?.name ?? id.replace(/-/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+  if (name === 'Faraz Ahmed') return <FarazProfile extra={(events[name] ?? []).map(eventToAct)} />;
+  const card = onBoard?.card ?? inArchive?.card ?? (queued ? { unit: queued.unit, src: queued.source.split(' · ')[0], budget: queued.budget, owner: 'UT' } : undefined);
+  return (
+    <SimpleProfile
+      lead={{
+        id,
+        name,
+        stage: inArchive ? (inArchive.kind === 'lost' ? 'Lost' : 'Nurture') : onBoard?.stage ?? row?.stage ?? 'New',
+        unit: card?.unit ?? row?.unit ?? '—',
+        src: card?.src ?? row?.src ?? '—',
+        budget: card?.budget ?? row?.budget ?? '—',
+        owner: card?.owner ?? row?.owner ?? '?',
+        phone: row?.phone ?? queued?.phone,
+      }}
+      archivedEntry={inArchive}
+      acts={[
+        ...(events[name] ?? []).map(eventToAct),
+        ...(inArchive && !(events[name] ?? []).length
+          ? [eventToAct({ id: 'seed', kind: inArchive.kind, title: inArchive.kind === 'lost' ? `Marked lost · ${inArchive.reason}` : 'Moved to Nurture', meta: `${inArchive.by} · ${inArchive.when} · from ${inArchive.fromStage}`, body: inArchive.note ?? (inArchive.kind === 'nurture' ? inArchive.reason : '') })]
+          : []),
+        { kind: 'sys', icon: 'sys', title: `Lead created from ${card?.src ?? row?.src ?? 'a form'}`, meta: 'System', body: `Interested in ${card?.unit ?? row?.unit ?? 'a unit'} · budget ${card?.budget ?? row?.budget ?? 'not given'}.` },
+      ]}
+    />
+  );
+}
+
+type SimpleLead = { id: string; name: string; stage: string; unit: string; src: string; budget: string; owner: string; phone?: string };
+
+/** Profile for any lead without hand-written sample data: header, timeline and units. */
+function SimpleProfile({ lead, archivedEntry, acts }: { lead: SimpleLead; archivedEntry?: Archived; acts: Act[] }) {
+  const s = useSession();
+  const [reopening, setReopening] = useState(false);
+  const initials = lead.name.split(' ').map((w) => w[0]).slice(0, 2).join('');
+  return (
+    <>
+      <nav aria-label="Breadcrumb" className="breadcrumb">
+        <Link to="/leads">{s.role === 'agent' ? 'My leads' : 'Leads'}</Link> / {lead.name}
+      </nav>
+      <div className="panel" style={{ padding: 16 }}>
+        <div className="row-wrap" style={{ gap: 16, alignItems: 'flex-start' }}>
+          <Avatar initials={initials} size={48} variant="dark" />
+          <div className="stack-1 spacer" style={{ minWidth: 240 }}>
+            <div className="row-wrap" style={{ gap: 12 }}>
+              <h1 className="t-h1">{lead.name}</h1>
+              {archivedEntry ? <Chip tone={archivedEntry.kind === 'lost' ? 'bad' : 'plain'}>{lead.stage}</Chip> : <StageBadge stage={lead.stage} age="0d" />}
+            </div>
+            <span className="muted">
+              {lead.unit} · {lead.src} · {lead.budget}
+              {lead.phone ? ` · ${lead.phone}` : ''}
+            </span>
+          </div>
+          {archivedEntry ? (
+            <Button variant="primary" icon="up" onClick={() => setReopening(true)}>
+              Reopen lead
+            </Button>
+          ) : (
+            <div className="row-wrap">
+              <Button variant="primary" icon="phone">
+                Call
+              </Button>
+              <Button>WhatsApp</Button>
+            </div>
+          )}
+        </div>
+      </div>
+      <section aria-labelledby="h-act2" className="panel" style={{ maxWidth: 900 }}>
+        <div className="panel__head">
+          <h2 id="h-act2" className="panel__title">
+            Activity
+          </h2>
+        </div>
+        <ol className="timeline">
+          {acts.map((a, i) => (
+            <li key={a.title + i}>
+              <span className={`timeline__icon ${a.tone === 'bad' ? 'is-bad' : a.tone === 'brand' ? 'is-brand' : ''}`}>
+                <Icon name={a.icon} size={14} />
+              </span>
+              <div className="stack-1 min0 spacer" style={{ gap: 2 }}>
+                <div className="row-wrap" style={{ alignItems: 'baseline' }}>
+                  <b className="strong">{a.title}</b>
+                  <span className="small muted">{a.meta}</span>
+                </div>
+                {a.body && <span className="text-2">{a.body}</span>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+      {reopening && archivedEntry && <ReopenModal entry={archivedEntry} onClose={() => setReopening(false)} />}
+    </>
+  );
+}
+
+function FarazProfile({ extra }: { extra: Act[] }) {
   const s = useSession();
   const toast = useToast();
   const [cur, setCur] = useState(7);
   const [filter, setFilter] = useState<Kind>('all');
+  const [section, setSection] = useState<Section>('activity');
+  const [moreContact, setMoreContact] = useState(false);
   const [acts, setActs] = useState(ACTS);
   const [note, setNote] = useState('');
   const [logging, setLogging] = useState(false);
@@ -72,7 +197,7 @@ export function LeadProfile() {
   const [skipNote, setSkipNote] = useState('');
   const canReassign = s.role === 'manager' || s.role === 'admin';
 
-  const shown = acts.filter((a) => filter === 'all' || a.kind === filter);
+  const shown = [...extra, ...acts].filter((a) => filter === 'all' || a.kind === filter);
 
   // Stepper: forward moves only; skipping more than 2 stages asks for a note; Token+ needs a booking (Pipeline).
   const step = (i: number) => {
@@ -146,15 +271,19 @@ export function LeadProfile() {
                 Edit
               </button>
             </div>
-            {CONTACT.map((f) => (
+            {(moreContact ? CONTACT : CONTACT.filter((f) => ['Mobile', 'Budget', 'Looking for', 'Preferred contact'].includes(f.k))).map((f) => (
               <div key={f.k} className="kv">
                 <span>{f.k}</span>
                 <span className={f.strong ? 'strong' : undefined}>{f.v}</span>
               </div>
             ))}
+            <button type="button" className="btn btn--ghost btn--xs" style={{ alignSelf: 'flex-start', padding: 0 }} aria-expanded={moreContact} onClick={() => setMoreContact((x) => !x)}>
+              {moreContact ? 'Show less' : `Show all ${CONTACT.length} details`}
+            </button>
           </section>
-          <section className="panel stack-3" style={{ padding: 16 }}>
-            <h2 className="panel__title">Ownership</h2>
+          <details className="panel disclosure">
+            <summary className="panel__title">Ownership</summary>
+            <div className="stack-3" style={{ paddingTop: 12 }}>
             <dl className="dl">
               <dt>Owner</dt>
               <dd className="strong">Usman Tariq</dd>
@@ -179,77 +308,85 @@ export function LeadProfile() {
                 <span className="small muted">Only Sales Managers can reassign leads.</span>
               </>
             )}
-          </section>
+            </div>
+          </details>
         </aside>
 
-        <section aria-labelledby="h-act" className="panel" style={{ flex: '2 1 420px', display: 'flex', flexDirection: 'column' }}>
-          <div className="panel__head">
-            <h2 id="h-act" className="panel__title spacer">
-              Activity
-            </h2>
-            <div role="group" aria-label="Filter activity" className="row" style={{ gap: 4 }}>
-              {FILTERS.map((f) => (
-                <button key={f.key} type="button" aria-pressed={filter === f.key} className="pill-toggle" onClick={() => setFilter(f.key)}>
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <form
-            className="stack-2"
-            style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!note.trim()) return;
-              setActs((xs) => [{ kind: 'note', icon: 'note', title: 'Note', meta: `${s.person.name} · just now`, body: note.trim() }, ...xs]);
-              setNote('');
-              toast({ text: 'Note saved · next follow-up Tomorrow 11:00' });
-            }}
-          >
-            <label htmlFor="lp-note" className="field__label">
-              Add note
-            </label>
-            <textarea id="lp-note" className="textarea" rows={2} placeholder="What happened? Mention a colleague with @" value={note} onChange={(e) => setNote(e.target.value)} />
-            <div className="row">
-              <span className="small muted">Next follow-up</span>
-              <button type="button" className="btn btn--secondary btn--xs" style={{ fontWeight: 500 }}>
-                Tomorrow 11:00
+        <section aria-label="Lead details" className="panel" style={{ flex: '2 1 520px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <div role="tablist" aria-label="Lead sections" className="tabs">
+            {(
+              [
+                ['activity', 'Activity', acts.length],
+                ['units', 'Units of interest', UNITS.length],
+                ['history', 'Stage history', '12d'],
+              ] as [Section, string, number | string][]
+            ).map(([k, l, n]) => (
+              <button key={k} type="button" role="tab" aria-selected={section === k} className="tab" data-tour={`tab-${k}`} onClick={() => setSection(k)}>
+                {l} <span className="tab__n">{n}</span>
               </button>
-              <span className="spacer" />
-              <button type="submit" className="btn btn--primary btn--sm">
-                Save
-              </button>
-            </div>
-          </form>
-          <ol className="timeline">
-            {shown.map((a, i) => (
-              <li key={a.title + a.meta + i}>
-                <span className={`timeline__icon ${a.tone === 'bad' ? 'is-bad' : a.tone === 'brand' ? 'is-brand' : ''}`}>
-                  <Icon name={a.icon} size={14} />
-                </span>
-                <div className="stack-1 min0 spacer" style={{ gap: 2 }}>
-                  <div className="row-wrap" style={{ alignItems: 'baseline' }}>
-                    <b className="strong">{a.title}</b>
-                    <span className="small muted">{a.meta}</span>
-                  </div>
-                  <span className="text-2">{a.body}</span>
-                </div>
-              </li>
             ))}
-            {shown.length === 0 && <li className="muted">Nothing of this type yet.</li>}
-          </ol>
-        </section>
-
-        <div className="stack-4 min0" style={{ flex: '1 1 340px' }}>
-          <section aria-labelledby="h-units" className="panel panel--clip">
-            <div className="panel__head">
-              <h2 id="h-units" className="panel__title spacer">
-                Units of interest
-              </h2>
-              <button type="button" className="btn btn--ghost btn--xs">
-                + Add unit
-              </button>
-            </div>
+          </div>
+          {section === 'activity' && (
+            <>
+              <div className="row-wrap" role="group" aria-label="Filter activity" style={{ gap: 4, padding: '10px 16px 0' }}>
+                {FILTERS.map((f) => (
+                  <button key={f.key} type="button" aria-pressed={filter === f.key} className="pill-toggle" onClick={() => setFilter(f.key)}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            <form
+              className="stack-2"
+              style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!note.trim()) return;
+                setActs((xs) => [{ kind: 'note', icon: 'note', title: 'Note', meta: `${s.person.name} · just now`, body: note.trim() }, ...xs]);
+                setNote('');
+                toast({ text: 'Note saved · next follow-up Tomorrow 11:00' });
+              }}
+            >
+              <label htmlFor="lp-note" className="field__label">
+                Add note
+              </label>
+              <textarea id="lp-note" className="textarea" rows={2} placeholder="What happened? Mention a colleague with @" value={note} onChange={(e) => setNote(e.target.value)} />
+              <div className="row">
+                <span className="small muted">Next follow-up</span>
+                <button type="button" className="btn btn--secondary btn--xs" style={{ fontWeight: 500 }}>
+                  Tomorrow 11:00
+                </button>
+                <span className="spacer" />
+                <button type="submit" className="btn btn--primary btn--sm">
+                  Save
+                </button>
+              </div>
+            </form>
+            <ol className="timeline">
+              {shown.map((a, i) => (
+                <li key={a.title + a.meta + i}>
+                  <span className={`timeline__icon ${a.tone === 'bad' ? 'is-bad' : a.tone === 'brand' ? 'is-brand' : ''}`}>
+                    <Icon name={a.icon} size={14} />
+                  </span>
+                  <div className="stack-1 min0 spacer" style={{ gap: 2 }}>
+                    <div className="row-wrap" style={{ alignItems: 'baseline' }}>
+                      <b className="strong">{a.title}</b>
+                      <span className="small muted">{a.meta}</span>
+                    </div>
+                    <span className="text-2">{a.body}</span>
+                  </div>
+                </li>
+              ))}
+              {shown.length === 0 && <li className="muted">Nothing of this type yet.</li>}
+            </ol>
+            </>
+          )}
+          {section === 'units' && (
+            <div>
+              <div className="row" style={{ padding: '10px 16px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn--ghost btn--xs">
+                  + Add unit
+                </button>
+              </div>
             {UNITS.map((u) => (
               <div key={u.code} className="stack-2" style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', gap: 6 }}>
                 <div className="row">
@@ -269,12 +406,10 @@ export function LeadProfile() {
                 </div>
               </div>
             ))}
-          </section>
-
-          <section aria-labelledby="h-hist" className="panel stack-2" style={{ padding: '12px 16px' }}>
-            <h2 id="h-hist" className="panel__title">
-              Stage history
-            </h2>
+            </div>
+          )}
+          {section === 'history' && (
+            <div className="stack-2" style={{ padding: '16px', gap: 10 }}>
             <span className="small muted">Time in stage vs SLA · 12 days total</span>
             {HIST.map(([name, d, w, late]) => (
               <div key={name} className="hist-row">
@@ -290,8 +425,9 @@ export function LeadProfile() {
             <span className="small muted" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
               Moved to Negotiation by Usman Tariq on 22 Oct after visit.
             </span>
-          </section>
-        </div>
+            </div>
+          )}
+        </section>
       </div>
 
       {logging && (
