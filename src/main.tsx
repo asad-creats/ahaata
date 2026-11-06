@@ -11,6 +11,7 @@ import './styles/base.css';
 import './styles/components.css';
 import './styles/shell.css';
 import './styles/pages.css';
+import './styles/intro.css';
 
 // The claude.ai demo runs in a frame without real URLs, so it keeps routes in memory.
 // GitHub Pages serves static files only, so it keeps the screen after a # (e.g. /ahaata/#/pipeline).

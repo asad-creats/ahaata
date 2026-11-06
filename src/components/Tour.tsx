@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSession, type Role } from '../lib/session';
 import { Icon } from './Icon';
+import { Intro } from './Intro';
 
 /**
  * Guided feature tour: an animated cursor moves to each feature on the real
@@ -76,11 +77,23 @@ function resetScene() {
   (document.activeElement as HTMLElement | null)?.blur?.();
 }
 
-type Ctx = { start: () => void; running: boolean };
-const TourCtx = createContext<Ctx>({ start: () => {}, running: false });
+type Ctx = { start: () => void; running: boolean; openIntro: () => void };
+const TourCtx = createContext<Ctx>({ start: () => {}, running: false, openIntro: () => {} });
 export const useTour = () => useContext(TourCtx);
 
 const SEEN = 'ehata.tourSeen.v1';
+const INTRO_SEEN = 'ehata.introSeen.v1';
+
+function remember(key: string) {
+  try {
+    window.localStorage.setItem(key, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
+/** The buyer-facing site and the phone view skip the intro. */
+const introAllowed = (path: string) => !/^\/(site|m)(\/|$)/.test(path);
 
 export function TourProvider({ children }: { children: ReactNode }) {
   const nav = useNavigate();
@@ -95,6 +108,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
       return !window.localStorage.getItem(SEEN);
     } catch {
       return true;
+    }
+  });
+  const [intro, setIntro] = useState(() => {
+    try {
+      return !window.localStorage.getItem(INTRO_SEEN);
+    } catch {
+      return false;
     }
   });
   const ghost = useRef<HTMLElement | null>(null);
@@ -115,14 +135,21 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(() => {
     setOffer(false);
-    try {
-      window.localStorage.setItem(SEEN, '1');
-    } catch {
-      /* ignore */
-    }
+    remember(SEEN);
     setPlaying(true);
     setIndex(0);
   }, []);
+
+  const closeIntro = useCallback(() => {
+    setIntro(false);
+    setOffer(false); // the intro's last slide already offered the tour
+    remember(INTRO_SEEN);
+  }, []);
+
+  const openIntro = useCallback(() => {
+    stop();
+    setIntro(true);
+  }, [stop]);
 
   // Keep the highlight ring on its target while the page scrolls or reflows.
   useEffect(() => {
@@ -230,10 +257,20 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const step = index === null ? null : STEPS[index];
 
   return (
-    <TourCtx.Provider value={{ start, running: index !== null }}>
+    <TourCtx.Provider value={{ start, running: index !== null, openIntro }}>
       {children}
 
-      {offer && index === null && (
+      {intro && index === null && introAllowed(loc.pathname) && (
+        <Intro
+          onClose={closeIntro}
+          onTour={() => {
+            closeIntro();
+            start();
+          }}
+        />
+      )}
+
+      {offer && !intro && index === null && (
         <div className="tour-offer" role="region" aria-label="Product tour">
           <Icon name="play" size={14} />
           <span className="spacer">Watch a 1-minute tour of the main features</span>
