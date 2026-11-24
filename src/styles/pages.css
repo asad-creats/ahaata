@@ -2018,41 +2018,30 @@
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 3px;
 }
 .home-summary__link:hover {
-  text-decoration-color: currentColor;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Call first */
 .home-next {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--brand-600);
-  border-radius: 12px;
+  border-radius: var(--r-panel);
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-.home-next--bad {
-  border-left-color: var(--danger);
-}
-.home-next--warn {
-  border-left-color: var(--warning-bar);
+  gap: 8px;
 }
 .home-next__top {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
 }
 .home-next__eyebrow {
-  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 .home-next__body {
@@ -2088,30 +2077,18 @@
 
 /* When something is due: words first, colour only backs them up */
 .due {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  width: fit-content;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
   line-height: 20px;
-  padding: 0 8px;
-  border-radius: 10px;
   white-space: nowrap;
-  background: var(--surface-2);
-  color: var(--text-2);
+  color: var(--text-muted);
 }
 .due--bad {
-  background: var(--danger-bg);
   color: var(--danger);
+  font-weight: 600;
 }
 .due--warn {
-  background: var(--warning-bg);
   color: var(--warning);
-}
-.due--ok {
-  background: var(--success-bg);
-  color: var(--success);
+  font-weight: 600;
 }
 
 .home-grid {
@@ -2182,31 +2159,10 @@
 }
 .home-group__title {
   margin: 0;
-  padding: 14px 20px 4px;
-  font-size: 13px;
+  padding: 16px 20px 4px;
+  font-size: 12px;
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.home-group__title::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--brand-600);
-}
-.home-group__title--bad {
-  color: var(--danger);
-}
-.home-group__title--bad::before {
-  background: var(--danger);
-}
-.home-group__title--warn {
-  color: var(--warning);
-}
-.home-group__title--warn::before {
-  background: var(--warning-bar);
+  color: var(--text-muted);
 }
 
 .home-list {
