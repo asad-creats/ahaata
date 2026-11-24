@@ -32,11 +32,7 @@ function sentText(what: string) {
 
 function Due({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
-    <span className={`due due--${tone}`}>
-      {tone === 'bad' && <Icon name="warn" size={12} stroke={2.5} />}
-      {tone === 'warn' && <Icon name="clock" size={12} stroke={2.5} />}
-      {children}
-    </span>
+    <span className={`due due--${tone}`}>{children}</span>
   );
 }
 
@@ -58,8 +54,8 @@ function Row({ title, say, note, due, action }: { title: ReactNode; say: ReactNo
 }
 
 const GROUPS: { tone: Tone; title: string }[] = [
-  { tone: 'bad', title: 'Late: call these first' },
-  { tone: 'warn', title: 'Due in the next few minutes' },
+  { tone: 'bad', title: 'Late' },
+  { tone: 'warn', title: 'Due soon' },
   { tone: 'ok', title: 'Later today' },
 ];
 
@@ -157,18 +153,18 @@ export function AgentHome() {
             Log activity
           </button>
           <button type="button" className="btn btn--primary btn--sm">
-            <Icon name="plus" size={14} />
             Add lead
           </button>
         </div>
       </header>
 
       {next && (
-        <section className={`home-next home-next--${next.tone}`} aria-labelledby="h-next">
+        <section className="home-next" aria-labelledby="h-next">
           <div className="home-next__top">
             <span className="home-next__eyebrow" id="h-next">
               Call first
             </span>
+            <span className="muted">·</span>
             <Due tone={next.tone}>{dueText(next.sla)}</Due>
           </div>
           <div className="home-next__body">
@@ -213,9 +209,7 @@ export function AgentHome() {
                 if (!rows.length) return null;
                 return (
                   <div key={g.tone} className="home-group">
-                    <h3 className={`home-group__title home-group__title--${g.tone}`}>
-                      {g.title} <span className="muted">· {rows.length}</span>
-                    </h3>
+                    <h3 className="home-group__title">{g.title}</h3>
                     <ul className="home-list">
                       {rows.map((c) => (
                         <Row key={c.name} title={nameLink(c.name)} say={c.say ?? c.why} due={<Due tone={c.tone}>{dueText(c.sla)}</Due>} action={callBtn(c)} />
@@ -304,7 +298,7 @@ export function AgentHome() {
               <span className="col" style={{ gap: 2 }}>
                 <b>{VISITS[0].name}</b>
                 <span className="small text-2">{VISITS[0].what}</span>
-                <Due tone={VISITS[0].tone}>{VISITS[0].status}</Due>
+                <span className="small muted">{VISITS[0].status}</span>
               </span>
             </div>
           </div>
@@ -318,7 +312,7 @@ export function AgentHome() {
                   <UnitTag>{h.unit}</UnitTag>
                   <span className="col" style={{ gap: 4 }}>
                     <span className="small">For {h.for}</span>
-                    <Due tone={h.tone}>Hold ends in {h.left}</Due>
+                    <Due tone={h.tone === 'bad' ? 'bad' : 'neutral'}>Hold ends in {h.left}</Due>
                   </span>
                 </div>
               ))}
