@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { LogCallForm } from '../components/LogCall';
-import { Drawer, Track, UnitTag, toneFg, type Tone } from '../components/ui';
+import { Drawer, Track, UnitTag, type Tone } from '../components/ui';
 import { AWAITING, CALLS, HOLDS, OVERDUE, VISITS, type CallRow } from '../data/agent';
 import { leadPath } from '../lib/leadLink';
 import { useSession } from '../lib/session';
@@ -12,24 +12,56 @@ type Queue = 'call' | 'overdue' | 'visits' | 'awaiting';
 
 let slaToastShown = false;
 
-/** A calm list row: who, why now, how urgent, one main action. */
-function Row({ title, sub, chip, tone, action }: { title: ReactNode; sub: string; chip?: string; tone?: Tone; action: ReactNode }) {
+/** "Breached by 17 min" → "17 min late", "4 min left" → "within 4 min". */
+function dueText(sla: string) {
+  const late = /^Breached by (.+)$/.exec(sla);
+  if (late) return `${late[1]} late`;
+  const left = /^(.+) left$/.exec(sla);
+  return left ? `within ${left[1]}` : sla;
+}
+
+/** "6d late" → "6 days late". */
+const lateText = (s: string) => s.replace(/^(\d+)d late$/, (_, n) => `${n} ${n === '1' ? 'day' : 'days'} late`);
+
+/** "B-702 · 3-year plan sent 1 Nov" → "Sent the 3-year plan for B-702 on 1 Nov". */
+function sentText(what: string) {
+  const [unit, rest = ''] = what.split(' · ');
+  const m = /^(.+) sent (.+)$/.exec(rest);
+  return m ? `Sent the ${m[1]} for ${unit} on ${m[2]}` : what;
+}
+
+function Due({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return (
+    <span className={`due due--${tone}`}>
+      {tone === 'bad' && <Icon name="warn" size={12} stroke={2.5} />}
+      {tone === 'warn' && <Icon name="clock" size={12} stroke={2.5} />}
+      {children}
+    </span>
+  );
+}
+
+/** One person per row: who, why in plain words, when, one main action. */
+function Row({ title, say, note, due, action }: { title: ReactNode; say: ReactNode; note?: ReactNode; due?: ReactNode; action: ReactNode }) {
   return (
     <li className="home-row">
-      <div className="col spacer min0" style={{ gap: 2 }}>
-        <span className="strong ellipsis">{title}</span>
-        <span className="small muted ellipsis">{sub}</span>
+      <div className="home-row__main">
+        <span className="home-row__name">{title}</span>
+        <span className="home-row__say">{say}</span>
+        {note && <span className="home-row__note">{note}</span>}
       </div>
-      {chip && (
-        <span className="home-chip" style={{ color: toneFg(tone ?? 'neutral') }}>
-          <Icon name={tone === 'bad' ? 'warn' : 'clock'} size={12} stroke={2.5} />
-          {chip}
-        </span>
-      )}
-      {action}
+      <div className="home-row__side">
+        {due}
+        {action}
+      </div>
     </li>
   );
 }
+
+const GROUPS: { tone: Tone; title: string }[] = [
+  { tone: 'bad', title: 'Late: call these first' },
+  { tone: 'warn', title: 'Due in the next few minutes' },
+  { tone: 'ok', title: 'Later today' },
+];
 
 export function AgentHome() {
   const s = useSession();
@@ -37,10 +69,11 @@ export function AgentHome() {
   const [queue, setQueue] = useState<Queue>('call');
   const [logFor, setLogFor] = useState<CallRow | null>(null);
   const [called, setCalled] = useState<string[]>([]);
+  const listRef = useRef<HTMLElement>(null);
   const team = s.role !== 'agent';
   const first = s.person.name.split(' ')[0];
 
-  // At T-5 min an in-app toast fires with a Call button.
+  // A few minutes before a new lead goes late, a toast offers the call.
   useEffect(() => {
     if (slaToastShown) return;
     slaToastShown = true;
@@ -49,7 +82,7 @@ export function AgentHome() {
         tone: 'alert',
         text: (
           <>
-            <b>SLA in 4 min</b> · Kamran Javed (Graana) not yet called
+            <b>Call Kamran Javed in the next 4 min</b> · new enquiry from Graana
           </>
         ),
         action: { label: 'Call', onClick: () => setLogFor(CALLS[2]) },
@@ -61,70 +94,97 @@ export function AgentHome() {
   const calls = CALLS.filter((c) => !called.includes(c.name));
   const next = calls[0];
   const rest = calls.slice(1);
+  const lateCalls = calls.filter((c) => c.tone === 'bad').length;
 
   const QUEUES: { key: Queue; label: string; n: number; alert?: boolean }[] = [
-    { key: 'call', label: 'Call now', n: 7 - called.length, alert: true },
-    { key: 'overdue', label: 'Overdue', n: OVERDUE.length, alert: true },
-    { key: 'visits', label: 'Visits', n: VISITS.length },
-    { key: 'awaiting', label: 'Awaiting reply', n: AWAITING.length },
+    { key: 'call', label: 'To call', n: calls.length, alert: lateCalls > 0 },
+    { key: 'overdue', label: 'Late follow-ups', n: OVERDUE.length, alert: true },
+    { key: 'visits', label: 'Visits today', n: VISITS.length },
+    { key: 'awaiting', label: 'Waiting on buyer', n: AWAITING.length },
   ];
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const callBtn = (c: CallRow) => (
+  const open = (q: Queue) => {
+    setQueue(q);
+    listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const callBtn = (c: CallRow, label = 'Call') => (
     <button type="button" className="btn btn--secondary btn--sm" onClick={() => setLogFor(c)}>
       <Icon name="phone" size={14} />
-      Call
+      {label}
     </button>
+  );
+
+  const nameLink = (name: string) => (
+    <Link to={leadPath(name)} className="cell-link">
+      {name}
+    </Link>
   );
 
   return (
     <div className="home">
       <header className="home-head">
-        <div className="col" style={{ gap: 4 }}>
+        <div className="col" style={{ gap: 6 }}>
+          <span className="muted small">
+            {team ? 'Your team today' : 'Your day'} · Tuesday 3 November · {s.project}
+          </span>
           <h1 className="home-greet">
             {greeting}, {first}
           </h1>
-          <span className="muted">
-            {team ? 'Your team today' : 'Here’s your day'} · Tuesday 3 November · {s.project}
-          </span>
+          <p className="home-summary">
+            You have{' '}
+            <button type="button" className="home-summary__link" onClick={() => open('call')}>
+              {calls.length} people to call
+            </button>
+            {lateCalls > 0 && <span className="danger-text"> ({lateCalls} already late)</span>},{' '}
+            <button type="button" className="home-summary__link" onClick={() => open('overdue')}>
+              {OVERDUE.length} follow-ups past their date
+            </button>{' '}
+            and{' '}
+            <span style={{ whiteSpace: 'nowrap' }}>
+              <button type="button" className="home-summary__link" onClick={() => open('visits')}>
+                {VISITS.length} site visits
+              </button>
+              .
+            </span>
+          </p>
         </div>
         <div className="row">
           <button type="button" className="btn btn--secondary btn--sm">
             Log activity
           </button>
           <button type="button" className="btn btn--primary btn--sm">
+            <Icon name="plus" size={14} />
             Add lead
           </button>
         </div>
       </header>
 
       {next && (
-        <section className="home-next" aria-labelledby="h-next">
-          <span className="home-next__eyebrow" id="h-next">
-            Next up
-          </span>
+        <section className={`home-next home-next--${next.tone}`} aria-labelledby="h-next">
+          <div className="home-next__top">
+            <span className="home-next__eyebrow" id="h-next">
+              Call first
+            </span>
+            <Due tone={next.tone}>{dueText(next.sla)}</Due>
+          </div>
           <div className="home-next__body">
             <div className="col min0" style={{ gap: 6, flex: 1 }}>
               <Link to={leadPath(next.name)} className="home-next__name">
                 {next.name}
               </Link>
-              <span className="text-2">
-                {next.why} · {next.source}
-              </span>
-              <span className="row-wrap" style={{ gap: 8 }}>
-                <UnitTag>{next.unit}</UnitTag>
-                <span className="small muted">{next.budget}</span>
-                <span className="home-chip" style={{ color: toneFg(next.tone) }}>
-                  <Icon name={next.tone === 'bad' ? 'warn' : 'clock'} size={12} stroke={2.5} />
-                  {next.sla}
-                </span>
+              <span className="home-next__say">{next.say ?? next.why}</span>
+              <span className="home-next__facts">
+                Looking for <b>{next.unit}</b> · Budget <b>{next.budget}</b>
               </span>
             </div>
             <div className="row" style={{ gap: 8 }}>
-              <button type="button" className="btn btn--secondary btn--lg btn--icon" style={{ width: 40 }} aria-label={`WhatsApp ${next.name}`}>
+              <button type="button" className="btn btn--secondary btn--lg" aria-label={`WhatsApp ${next.name}`}>
                 <Icon name="whatsapp" size={16} stroke={1.8} />
+                <span className="hide-sm">WhatsApp</span>
               </button>
               <button type="button" className="btn btn--primary btn--lg" data-tour="call-first" onClick={() => setLogFor(next)}>
                 <Icon name="phone" size={16} />
@@ -136,8 +196,8 @@ export function AgentHome() {
       )}
 
       <div className="home-grid">
-        <section className="panel panel--clip" aria-label="Today's queues">
-          <div role="tablist" aria-label="Today's queues" className="home-pills">
+        <section className="panel panel--clip home-queue" aria-label="Today's work" ref={listRef}>
+          <div role="tablist" aria-label="Today's work" className="home-pills">
             {QUEUES.map((q) => (
               <button key={q.key} type="button" role="tab" aria-selected={queue === q.key} className="home-pill" data-tour={`tile-${q.key}`} onClick={() => setQueue(q.key)}>
                 {q.label}
@@ -146,56 +206,62 @@ export function AgentHome() {
             ))}
           </div>
 
-          <ul className="home-list">
-            {queue === 'call' &&
-              (rest.length ? (
-                rest.map((c) => (
-                  <Row
-                    key={c.name}
-                    title={
-                      <Link to={leadPath(c.name)} className="cell-link">
-                        {c.name}
-                      </Link>
-                    }
-                    sub={`${c.why} · ${c.unit}`}
-                    chip={c.sla}
-                    tone={c.tone}
-                    action={callBtn(c)}
-                  />
-                ))
-              ) : (
-                <li className="home-row muted">Nothing else waiting. New leads land here within a minute.</li>
-              ))}
-            {queue === 'overdue' &&
-              OVERDUE.map((o) => (
+          {queue === 'call' &&
+            (rest.length ? (
+              GROUPS.map((g) => {
+                const rows = rest.filter((c) => c.tone === g.tone);
+                if (!rows.length) return null;
+                return (
+                  <div key={g.tone} className="home-group">
+                    <h3 className={`home-group__title home-group__title--${g.tone}`}>
+                      {g.title} <span className="muted">· {rows.length}</span>
+                    </h3>
+                    <ul className="home-list">
+                      {rows.map((c) => (
+                        <Row key={c.name} title={nameLink(c.name)} say={c.say ?? c.why} due={<Due tone={c.tone}>{dueText(c.sla)}</Due>} action={callBtn(c)} />
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="home-empty">Nobody else to call right now. New enquiries show up here within a minute.</p>
+            ))}
+
+          {queue === 'overdue' && (
+            <ul className="home-list">
+              {OVERDUE.map((o) => (
                 <Row
                   key={o.name}
-                  title={
-                    <Link to={leadPath(o.name)} className="cell-link">
-                      {o.name}
-                    </Link>
-                  }
-                  sub={`${o.stage} · “${o.note}”`}
-                  chip={o.late}
-                  tone="bad"
+                  title={nameLink(o.name)}
+                  say={o.note}
+                  note={`${o.stage} · follow-up set by ${o.by}`}
+                  due={<Due tone="bad">{lateText(o.late)}</Due>}
                   action={
                     <span className="row" style={{ gap: 6 }}>
                       <button type="button" className="btn btn--ghost btn--sm">
-                        Reschedule
+                        New date
                       </button>
                       {callBtn({ ...CALLS[0], name: o.name, phone: '0300 512 3478' })}
                     </span>
                   }
                 />
               ))}
-            {queue === 'visits' &&
-              VISITS.map((v) => (
+            </ul>
+          )}
+
+          {queue === 'visits' && (
+            <ul className="home-list">
+              {VISITS.map((v) => (
                 <Row
                   key={v.time}
-                  title={`${v.time} · ${v.name}`}
-                  sub={v.what}
-                  chip={v.status}
-                  tone={v.tone}
+                  title={
+                    <>
+                      <span className="home-time">{v.time}</span> {v.name}
+                    </>
+                  }
+                  say={v.what}
+                  due={<Due tone={v.tone}>{v.status}</Due>}
                   action={
                     <button type="button" className="btn btn--secondary btn--sm">
                       Log visit
@@ -203,60 +269,75 @@ export function AgentHome() {
                   }
                 />
               ))}
-            {queue === 'awaiting' &&
-              AWAITING.map((a) => (
+            </ul>
+          )}
+
+          {queue === 'awaiting' && (
+            <ul className="home-list">
+              {AWAITING.map((a) => (
                 <Row
                   key={a.name}
-                  title={
-                    <Link to={leadPath(a.name)} className="cell-link">
-                      {a.name}
-                    </Link>
-                  }
-                  sub={`${a.what} · ${a.seen}`}
+                  title={nameLink(a.name)}
+                  say={sentText(a.what)}
+                  due={<Due tone="neutral">{a.seen}</Due>}
                   action={
                     <button type="button" className="btn btn--secondary btn--sm">
-                      Nudge on WhatsApp
+                      <Icon name="whatsapp" size={14} />
+                      Remind
                     </button>
                   }
                 />
               ))}
-          </ul>
-          {queue === 'call' && <div className="panel__foot">Sorted by time left to respond · new leads 15 min, follow-ups 24h</div>}
+            </ul>
+          )}
+
+          {queue === 'call' && <div className="panel__foot">Whoever needs a call soonest is at the top. Call new enquiries within 15 min and follow-ups within a day.</div>}
         </section>
 
-        <aside className="panel home-side" aria-label="Today at a glance">
-          <h2 className="panel__title">At a glance</h2>
-          <div className="stack-2">
-            <span className="t-label">Next visit</span>
-            <span>
-              <b>{VISITS[0].time}</b> · {VISITS[0].name}
-            </span>
-            <span className="small" style={{ color: toneFg(VISITS[0].tone) }}>
-              {VISITS[0].status}
-            </span>
+        <aside className="panel home-side" aria-label="Also today">
+          <h2 className="panel__title">Also today</h2>
+
+          <div className="home-side__block">
+            <span className="t-label">Next site visit</span>
+            <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
+              <span className="home-side__time">{VISITS[0].time}</span>
+              <span className="col" style={{ gap: 2 }}>
+                <b>{VISITS[0].name}</b>
+                <span className="small text-2">{VISITS[0].what}</span>
+                <Due tone={VISITS[0].tone}>{VISITS[0].status}</Due>
+              </span>
+            </div>
           </div>
-          <div className="stack-2">
-            <span className="t-label">Holds expiring</span>
-            {HOLDS.map((h) => (
-              <div key={h.unit} className="row">
-                <UnitTag>{h.unit}</UnitTag>
-                <span className="small text-2 spacer">{h.for}</span>
-                <span className="small bold" style={{ color: toneFg(h.tone) }}>
-                  {h.left}
-                </span>
-              </div>
-            ))}
+
+          <div className="home-side__block">
+            <span className="t-label">Flats on hold for your buyers</span>
+            {[...HOLDS]
+              .sort((a, b) => (a.tone === 'bad' ? -1 : b.tone === 'bad' ? 1 : 0))
+              .map((h) => (
+                <div key={h.unit} className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
+                  <UnitTag>{h.unit}</UnitTag>
+                  <span className="col" style={{ gap: 4 }}>
+                    <span className="small">For {h.for}</span>
+                    <Due tone={h.tone}>Hold ends in {h.left}</Due>
+                  </span>
+                </div>
+              ))}
           </div>
-          <div className="stack-2">
-            <span className="t-label">This month</span>
+
+          <div className="home-side__block">
+            <span className="t-label">Your month so far</span>
             <div className="row small" style={{ justifyContent: 'space-between' }}>
-              <span className="muted">Bookings</span>
-              <b>3 of 5</b>
+              <span>Bookings</span>
+              <span>
+                <b>3</b> <span className="muted">of 5 target</span>
+              </span>
             </div>
             <Track pct={60} label="Bookings 3 of 5" />
             <div className="row small" style={{ justifyContent: 'space-between' }}>
-              <span className="muted">Site visits</span>
-              <b>14 of 20</b>
+              <span>Site visits</span>
+              <span>
+                <b>14</b> <span className="muted">of 20 target</span>
+              </span>
             </div>
             <Track pct={70} label="Site visits 14 of 20" />
           </div>

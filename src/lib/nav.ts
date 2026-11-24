@@ -47,7 +47,7 @@ const insights = [
 export const NAV: Record<Role, NavItem[]> = {
   agent: [
     H('Work'),
-    L('myday', 'My day', 'home', '/my-day', '7', true),
+    L('myday', 'My day', 'home', '/my-day', '6', true),
     L('pipeline', 'Pipeline', 'board', '/pipeline'),
     L('leads', 'My leads', 'list', '/leads', '48'),
     L('inventory', 'Inventory', 'grid', '/inventory'),
