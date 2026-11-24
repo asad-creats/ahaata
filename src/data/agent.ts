@@ -10,6 +10,8 @@ export type CallRow = {
   tone: Tone;
   sla: string;
   pct: number;
+  /** Plain-language reason to call, for the agent's home screen. */
+  say?: string;
 };
 
 const row = (name: string, phone: string, why: string, source: string, unit: string, budget: string, tone: Tone, sla: string, pct: number): CallRow => ({
@@ -33,6 +35,17 @@ export const CALLS: CallRow[] = [
   row('Zubair Qureshi', '0300 210 3364', 'Opened payment plan twice', 'Dealer · Al-Noor Estate', 'B-702', 'PKR 1.92 Cr', 'ok', '3h 05m left', 18),
   row('Mariam Saleem Chaudhry-Abbasi', '0336 488 9012', 'Re-enquired after 40 days', 'Expo · Nurture', '3-bed', 'PKR 2.5–3 Cr', 'ok', '5h 40m left', 10),
 ];
+
+/** Why each person is in the queue, in everyday words. */
+const SAY: Record<string, string> = {
+  'Bilal Hussain': 'New enquiry from Facebook 32 min ago. Nobody has called yet.',
+  'Sadia Rehman': 'Her hold on flat A-1203 runs out in 1 hour.',
+  'Kamran Javed': 'New enquiry from Graana 11 min ago. Nobody has called yet.',
+  'Hina Aslam': 'Asked for a call back at 12:30 after her site visit.',
+  'Zubair Qureshi': 'Opened the payment plan twice. Sent by dealer Al-Noor Estate.',
+  'Mariam Saleem Chaudhry-Abbasi': 'Got in touch again after 40 days, asking about 3-beds.',
+};
+for (const c of CALLS) c.say = SAY[c.name];
 
 export const OVERDUE = [
   { late: '6d late', name: 'Faraz Ahmed', stage: 'Negotiation', note: 'Wants 5% off on B-504, will confirm with wife', by: 'Usman Tariq, 28 Oct' },
