@@ -60,9 +60,9 @@ export function Inventory() {
         <nav aria-label="Breadcrumb" className="row" style={{ gap: 6 }}>
           <a href="#project">{s.project}</a>
           <span className="muted">/</span>
-          <h1 className="t-h1">{TOWERS.find((t) => t.key === tower)?.label}</h1>
+          <h1 className="t-h1">{view === 'map' ? 'Site map' : TOWERS.find((t) => t.key === tower)?.label}</h1>
         </nav>
-        <span className="muted">{floors.length} floors · {all.length} units · Price list v7 (since 1 Oct)</span>
+        {view !== 'map' && <span className="muted">{floors.length} floors · {all.length} units · Price list v7 (since 1 Oct)</span>}
         <span className="spacer" />
         <button type="button" className="btn btn--secondary btn--sm">
           Export price list PDF
@@ -90,7 +90,7 @@ export function Inventory() {
         </button>
       </div>
 
-      <div className="row-wrap">
+      {view !== 'map' && <div className="row-wrap">
         <div role="tablist" aria-label="Blocks and towers" className="seg">
           {TOWERS.map((t) => (
             <button
@@ -126,18 +126,16 @@ export function Inventory() {
             <option value="views">Views (30d)</option>
           </select>
         </label>}
-      </div>
+      </div>}
 
       {view === 'map' && (
         <SiteMap
           project={s.project}
+          setProject={s.setProject}
           towers={mapTowers}
-          selected={tower}
-          onSelect={(k) => {
-            setTower(k);
-            setSelCode(null);
-            setMulti([]);
-          }}
+          readOnly={readOnly}
+          me={s.person.name}
+          theme={s.theme}
           onOpenUnit={(k, code) => {
             setTower(k);
             setMulti([]);

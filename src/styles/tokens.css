@@ -78,6 +78,16 @@
   --map-park: #cfe3c9;
   --map-park-border: #a9cba0;
   --map-park-fg: #2f5a27;
+  /* Site map plots: strong enough to read over satellite imagery */
+  --map-available: #4caf6e;
+  --map-hold: #e0a526;
+  --map-booked: #0d5f47;
+  --map-sold: #59615d;
+  --map-society: #efe9da;
+  --map-boundary: #c9a227;
+  --map-amenity: #d9d2c0;
+  --map-plot-line: rgba(20, 26, 23, 0.35);
+  --map-road: #d9dbd6;
 
   /* Type */
   --font: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -162,6 +172,15 @@
   --map-park: #1d3a24;
   --map-park-border: #2f5a27;
   --map-park-fg: #9fd39a;
+  --map-available: #4fbf7a;
+  --map-hold: #e5b043;
+  --map-booked: #1f8a66;
+  --map-sold: #6f7873;
+  --map-society: #24302a;
+  --map-boundary: #c9a227;
+  --map-amenity: #39433d;
+  --map-plot-line: rgba(0, 0, 0, 0.45);
+  --map-road: #3a4540;
 
   --shadow-1: 0 8px 24px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
 
