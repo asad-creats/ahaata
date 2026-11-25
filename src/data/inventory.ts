@@ -35,17 +35,34 @@ export const fmtShort = (p: number) => (p >= 10000000 ? (p / 10000000).toFixed(2
 /** Lakh grouping for tables: 1,25,000. */
 export const fmtLakh = (n: number) => n.toLocaleString('en-IN');
 
+/** The commercial block (G) is ground plus two floors of shops. */
+const SHOP_TYPES: [string, number][] = [
+  ['Shop', 620],
+  ['Shop', 380],
+  ['Shop', 380],
+  ['Shop', 450],
+  ['Shop', 450],
+  ['Shop', 380],
+  ['Shop', 380],
+  ['Shop', 620],
+];
+
+/** Floor name for labels: G for ground, otherwise the number. */
+export const floorName = (f: number) => (f === 0 ? 'G' : String(f));
+
 export function buildTower(tower: string): Unit[][] {
   const seed = tower.charCodeAt(0) - 65; // A=0, B=1 …
+  const shops = tower === 'G';
+  const [top, bottom] = shops ? [2, 0] : [14, 1];
   const floors: Unit[][] = [];
-  for (let f = 14; f >= 1; f--) {
+  for (let f = top; f >= bottom; f--) {
     floors.push(
-      TYPES.map(([type, size], i) => {
+      (shops ? SHOP_TYPES : TYPES).map(([type, size], i) => {
         const h = (f * 7 + i * 13 + ((f * i) % 5) + seed * 3) % 11;
         let status: Status = f <= 3 ? (h < 6 ? 'S' : h < 9 ? 'B' : 'A') : f <= 8 ? (h < 3 ? 'S' : h < 6 ? 'B' : h < 7 ? 'H' : 'A') : h < 1 ? 'S' : h < 3 ? 'B' : h < 4 ? 'H' : 'A';
         const code = `${tower}-${f}${String(i + 1).padStart(2, '0')}`;
         if (code === 'B-504') status = 'H';
-        const rate = 15500 + f * 117 + (i === 0 || i === 7 ? 400 : 0);
+        const rate = shops ? 32000 - f * 2500 + (i === 0 || i === 7 ? 1500 : 0) : 15500 + f * 117 + (i === 0 || i === 7 ? 400 : 0);
         const unit: Unit = { code, floor: f, type, size, status, rate, price: size * rate, facing: FACING[i] };
         if (status === 'H') {
           unit.holdFor = code === 'B-504' ? 'Faraz Ahmed' : ['Sadia Rehman', 'Hina Aslam', 'Zubair Qureshi'][(f + i) % 3];

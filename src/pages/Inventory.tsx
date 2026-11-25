@@ -1,8 +1,9 @@
 import { Fragment, useMemo, useState, type MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Icon } from '../components/Icon';
+import { SiteMap } from '../components/SiteMap';
 import { Button, Chip, DisabledWhy } from '../components/ui';
-import { BANDS, STATUS_LABEL, TYPES, buildTower, fmtLakh, fmtShort, type Status, type Unit } from '../data/inventory';
+import { BANDS, STATUS_LABEL, buildTower, fmtLakh, fmtShort, type Status, type Unit } from '../data/inventory';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 
@@ -24,8 +25,12 @@ export function Inventory() {
   const [selCode, setSelCode] = useState<string | null>(params.get('unit') ?? 'B-504');
   const [multi, setMulti] = useState<string[]>([]);
   const [bands, setBands] = useState(BANDS);
-  const [view, setView] = useState<'grid' | 'prices'>('grid');
+  const [view, setView] = useState<'grid' | 'map' | 'prices'>('grid');
 
+  const mapTowers = useMemo(
+    () => TOWERS.map((t) => ({ key: t.key, label: t.label, floors: buildTower(t.key).map((row) => row.map((u) => ({ ...u, ...overrides[u.code] }))) })),
+    [overrides],
+  );
   const floors = useMemo(() => buildTower(tower).map((row) => row.map((u) => ({ ...u, ...overrides[u.code] }))), [tower, overrides]);
   const all = floors.flat();
   const counts = all.reduce<Record<Status, number>>((c, u) => ({ ...c, [u.status]: c[u.status] + 1 }), { A: 0, H: 0, B: 0, S: 0 });
@@ -57,7 +62,7 @@ export function Inventory() {
           <span className="muted">/</span>
           <h1 className="t-h1">{TOWERS.find((t) => t.key === tower)?.label}</h1>
         </nav>
-        <span className="muted">14 floors · {all.length} units · Price list v7 (since 1 Oct)</span>
+        <span className="muted">{floors.length} floors · {all.length} units · Price list v7 (since 1 Oct)</span>
         <span className="spacer" />
         <button type="button" className="btn btn--secondary btn--sm">
           Export price list PDF
@@ -76,6 +81,9 @@ export function Inventory() {
       <div role="tablist" aria-label="Inventory views" className="tabs tabs--flush">
         <button type="button" role="tab" aria-selected={view === 'grid'} className="tab tab--40" onClick={() => setView('grid')}>
           Units
+        </button>
+        <button type="button" role="tab" aria-selected={view === 'map'} className="tab tab--40" onClick={() => setView('map')}>
+          Site map
         </button>
         <button type="button" role="tab" aria-selected={view === 'prices'} className="tab tab--40" data-tour="tab-prices" onClick={() => setView('prices')}>
           Price list {changes > 0 && <span className="tab__n" style={{ color: 'var(--warning)' }}>draft v8</span>}
@@ -120,6 +128,25 @@ export function Inventory() {
         </label>}
       </div>
 
+      {view === 'map' && (
+        <SiteMap
+          project={s.project}
+          towers={mapTowers}
+          selected={tower}
+          onSelect={(k) => {
+            setTower(k);
+            setSelCode(null);
+            setMulti([]);
+          }}
+          onOpenUnit={(k, code) => {
+            setTower(k);
+            setMulti([]);
+            setSelCode(code);
+            setView('grid');
+          }}
+        />
+      )}
+
       {view === 'grid' && <div className="split">
         <section aria-label="Unit grid" className="panel" style={{ flex: '999 1 640px', minWidth: 0, padding: 12, overflowX: 'auto' }}>
           {multi.length > 0 && (
@@ -142,11 +169,11 @@ export function Inventory() {
           )}
           <div className="unit-grid">
             <span />
-            {TYPES.map(([t], i) => (
+            {floors[0].map((u, i) => (
               <span key={i} className="unit-grid__col">
                 0{i + 1}
                 <br />
-                {t}
+                {u.type}
               </span>
             ))}
             {floors.map((row) => (
@@ -362,7 +389,7 @@ export function Inventory() {
   function renderRow(row: Unit[]) {
     return (
       <>
-        <span className="unit-grid__floor">F{row[0].floor}</span>
+        <span className="unit-grid__floor">{row[0].floor === 0 ? 'G' : `F${row[0].floor}`}</span>
         {row.map((u) => {
           const dim = !statusOn[u.status];
           const tip = `${u.code} · ${u.type} · ${u.size.toLocaleString('en-US')} sq ft · ${u.facing}${u.status === 'S' ? '' : ` · PKR ${fmtShort(u.price)} · ${fmtLakh(Math.round(u.price / u.size))}/sq ft`}${u.status === 'H' ? ` · held by ${u.holdBy} for ${u.holdFor}, ${u.holdLeft} left` : ''}`;
